@@ -20,7 +20,7 @@
     "defaultSection": "right",
     "defaults": {
       "csvPath": "",
-      "ssid": "tafel_office",
+      "ssid": "",
       "defaultProject": "tafel österreich",
       "roundMinutes": 15,
       "targetHours": 7
@@ -37,8 +37,8 @@
         "key": "ssid",
         "type": "string",
         "label": "Büro-WLAN (SSID)",
-        "defaultValue": "tafel_office",
-        "description": "Anmeldezeiten in dieses WLAN werden als Start/Ende vorgeschlagen."
+        "defaultValue": "",
+        "description": "Anmeldezeiten in dieses WLAN werden als Start/Ende vorgeschlagen. Leer = aktuell verbundenes WLAN automatisch verwenden."
       },
       {
         "key": "defaultProject",

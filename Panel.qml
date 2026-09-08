@@ -25,7 +25,10 @@ Panel {
     var p = setting("csvPath", "")
     return p !== "" ? p : Quickshell.env("HOME") + "/.local/share/time-tracker/log.csv"
   }
-  readonly property string ssid: setting("ssid", "tafel_office")
+  // Leeres ssid-Setting = automatisch das aktuell verbundene WLAN verwenden.
+  readonly property string configuredSsid: setting("ssid", "")
+  property string detectedSsid: ""
+  readonly property string ssid: configuredSsid !== "" ? configuredSsid : detectedSsid
   readonly property string defaultProject: setting("defaultProject", "tafel österreich")
   readonly property int roundMinutes: parseInt(setting("roundMinutes", 5), 10) || 0
 
@@ -130,6 +133,7 @@ Panel {
     logFile.reload()
     keyFile.reload()
     journalProc.running = true
+    if (configuredSsid === "" && !ssidProc.running) ssidProc.running = true
     nowTick = Date.now()
   }
 
@@ -306,13 +310,34 @@ Panel {
   }
 
   // ---- data: wifi sessions from the journal ----
+  // Journal-Text und SSID treffen asynchron ein — Sessions werden neu
+  // berechnet, sobald sich eines von beiden ändert.
+  property string journalText: ""
+  onJournalTextChanged: recomputeSessions()
+  onSsidChanged: recomputeSessions()
+
+  function recomputeSessions() {
+    wifiSessions = ssid !== ""
+      ? Model.mergeSessions(Model.parseSessions(journalText, ssid), 10)
+      : []
+  }
+
   Process {
     id: journalProc
     command: ["journalctl", "-u", "NetworkManager", "-o", "short-unix", "--no-pager", "--since", "today"]
     stdout: StdioCollector {
       id: journalStdout
       waitForEnd: true
-      onStreamFinished: root.wifiSessions = Model.mergeSessions(Model.parseSessions(text, root.ssid), 10)
+      onStreamFinished: root.journalText = text
+    }
+  }
+
+  Process {
+    id: ssidProc
+    command: ["nmcli", "-t", "-f", "ACTIVE,SSID", "dev", "wifi"]
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: root.detectedSsid = Model.parseActiveSsid(text)
     }
   }
 
@@ -492,14 +517,14 @@ Panel {
 
           // ---- Wifi suggestions ----
           PanelSectionHeader {
-            text: "WLAN " + root.ssid + " heute"
+            text: root.ssid !== "" ? "WLAN " + root.ssid + " heute" : "WLAN heute"
             foreground: root.barForeground
           }
 
           Text {
             visible: root.wifiSessions.length === 0
             textFormat: Text.PlainText
-            text: "Heute keine Anmeldung im " + root.ssid
+            text: root.ssid !== "" ? "Heute keine Anmeldung im " + root.ssid : "Kein WLAN verbunden"
             color: Qt.darker(root.barForeground, 1.3)
             font.family: Style.font.family
             font.pixelSize: Style.font.body

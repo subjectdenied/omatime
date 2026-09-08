@@ -220,6 +220,17 @@ function combine(day, t) {
   return new Date(day.getFullYear(), day.getMonth(), day.getDate(), t.h, t.min, 0)
 }
 
+// `nmcli -t -f ACTIVE,SSID dev wifi` -> SSID der aktiven Verbindung
+// (terse-Mode escaped Doppelpunkte als \:).
+function parseActiveSsid(text) {
+  var lines = String(text || "").split("\n")
+  for (var i = 0; i < lines.length; i++) {
+    var m = /^yes:(.*)$/.exec(lines[i])
+    if (m) return m[1].replace(/\\:/g, ":")
+  }
+  return ""
+}
+
 // -------------------------------------------------------------- journal ----
 
 // Input: `journalctl -u NetworkManager -o short-unix` output. A session opens

@@ -9,10 +9,11 @@ auf **derselben CSV** — beide Apps können parallel benutzt werden.
 - Bar-Widget mit Live-Timer (`󱎫 2:34`), Mittelklick = Start/Stopp
 - Panel: Live-Timer, klickbares Projekt-Label (Projektliste aus der
   gsettings-Konfiguration der GTK-App), quadratischer Start/Stopp-Button
-- **WLAN-Vorschläge:** Anmeldezeiten im Büro-Netz (SSID konfigurierbar,
-  Default `tafel_office`) werden aus dem NetworkManager-Journal gelesen und
-  als Start/Ende neuer Einträge vorgeschlagen; bereits erfasste Zeiten
-  werden markiert
+- **WLAN-Vorschläge:** Anmeldezeiten im Büro-Netz werden aus dem
+  NetworkManager-Journal gelesen und als Start/Ende neuer Einträge
+  vorgeschlagen; bereits erfasste Zeiten werden markiert. Die SSID wird
+  standardmäßig automatisch erkannt (aktuell verbundenes WLAN, via nmcli)
+  und kann per Setting auf ein bestimmtes Netz gepinnt werden
 - Manuelle Einträge über Kalender-Picker (Qt MonthGrid) und Zeit-Picker
   (15-min-Raster 06:00–24:00), Über-Nacht-Einträge möglich
 - Einträge per Klick bearbeiten/löschen (Liste virtualisiert, volle Historie)
@@ -33,7 +34,7 @@ Im Widget-Eintrag in `~/.config/omarchy/shell.json`:
 | Key | Default | Bedeutung |
 |---|---|---|
 | `csvPath` | `~/.local/share/time-tracker/log.csv` | Time-Tracker-CSV |
-| `ssid` | `tafel_office` | Büro-WLAN für Vorschläge |
+| `ssid` | *(leer)* | Büro-WLAN für Vorschläge; leer = aktuell verbundenes WLAN (Autodetect via nmcli) |
 | `defaultProject` | `tafel österreich` | Projekt für neue Einträge |
 | `roundMinutes` | `15` | Rundung der WLAN-Vorschläge |
 | `targetHours` | `7` | Soll-Stunden pro Tag (Balken) |
