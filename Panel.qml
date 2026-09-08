@@ -575,104 +575,124 @@ Panel {
             foreground: root.barForeground
           }
 
-          Row {
-            spacing: Style.space(6)
+          // Zwei Spalten: links die Von/Bis-Picker, rechts die Aktionen als
+          // quadratische Icon-Buttons — spart die separate Button-Zeile.
+          Item {
+            width: parent.width
+            height: pickerCol.implicitHeight
 
-            Text {
-              width: Style.space(30)
-              anchors.verticalCenter: parent.verticalCenter
-              textFormat: Text.PlainText
-              text: "Von"
-              color: Qt.darker(root.barForeground, 1.4)
-              font.family: Style.font.family
-              font.pixelSize: Style.font.caption
-              font.bold: true
-            }
-            DatePicker {
-              id: fromDatePick
-              selectedDate: root.newFromDate
-              onPicked: function(d) {
-                root.newFromDate = d
-                // Bis-Datum folgt dem Von-Datum, solange es nicht dahinter liegt.
-                if (root.newToDate.getTime() < d.getTime()) root.newToDate = d
+            Column {
+              id: pickerCol
+              spacing: Style.space(6)
+
+              Row {
+                spacing: Style.space(6)
+
+                Text {
+                  width: Style.space(30)
+                  anchors.verticalCenter: parent.verticalCenter
+                  textFormat: Text.PlainText
+                  text: "Von"
+                  color: Qt.darker(root.barForeground, 1.4)
+                  font.family: Style.font.family
+                  font.pixelSize: Style.font.caption
+                  font.bold: true
+                }
+                DatePicker {
+                  id: fromDatePick
+                  selectedDate: root.newFromDate
+                  onPicked: function(d) {
+                    root.newFromDate = d
+                    // Bis-Datum folgt dem Von-Datum, solange es nicht dahinter liegt.
+                    if (root.newToDate.getTime() < d.getTime()) root.newToDate = d
+                  }
+                }
+                TimePicker {
+                  id: fromTimePick
+                  value: root.newFrom
+                  onChanged: function(v) { root.newFrom = v }
+                }
+              }
+
+              Row {
+                spacing: Style.space(6)
+
+                Text {
+                  width: Style.space(30)
+                  anchors.verticalCenter: parent.verticalCenter
+                  textFormat: Text.PlainText
+                  text: "Bis"
+                  color: Qt.darker(root.barForeground, 1.4)
+                  font.family: Style.font.family
+                  font.pixelSize: Style.font.caption
+                  font.bold: true
+                }
+                DatePicker {
+                  id: toDatePick
+                  selectedDate: root.newToDate
+                  onPicked: function(d) { root.newToDate = d }
+                }
+                TimePicker {
+                  id: toTimePick
+                  value: root.newTo
+                  onChanged: function(v) { root.newTo = v }
+                }
               }
             }
-            TimePicker {
-              id: fromTimePick
-              value: root.newFrom
-              onChanged: function(v) { root.newFrom = v }
-            }
-          }
 
-          Row {
-            spacing: Style.space(6)
+            Row {
+              anchors.right: parent.right
+              anchors.top: pickerCol.top
+              spacing: Style.space(6)
 
-            Text {
-              width: Style.space(30)
-              anchors.verticalCenter: parent.verticalCenter
-              textFormat: Text.PlainText
-              text: "Bis"
-              color: Qt.darker(root.barForeground, 1.4)
-              font.family: Style.font.family
-              font.pixelSize: Style.font.caption
-              font.bold: true
-            }
-            DatePicker {
-              id: toDatePick
-              selectedDate: root.newToDate
-              onPicked: function(d) { root.newToDate = d }
-            }
-            TimePicker {
-              id: toTimePick
-              value: root.newTo
-              onChanged: function(v) { root.newTo = v }
-            }
-          }
+              Button {
+                visible: root.editingEntry === null
+                width: Style.spacing.controlHeight
+                height: Style.spacing.controlHeight
+                bordered: true
+                text: "󰐕"
+                fontSize: Style.font.icon
+                foreground: Color.accent
+                enabled: root.manualValid
+                opacity: root.manualValid ? 1 : 0.4
+                tooltipText: "Anlegen"
+                onClicked: root.addManualEntry()
+              }
 
-          Row {
-            visible: root.editingEntry === null
-            spacing: Style.space(6)
-
-            Item { width: Style.space(30); height: 1 }
-
-            Button {
-              // Bündig mit der Picker-Spalte, so breit wie beide Picker zusammen.
-              width: Style.space(104 + 6 + 72)
-              bordered: true
-              text: "Anlegen"
-              enabled: root.manualValid
-              opacity: root.manualValid ? 1 : 0.4
-              onClicked: root.addManualEntry()
-            }
-          }
-
-          Row {
-            visible: root.editingEntry !== null
-            spacing: Style.space(6)
-
-            Item { width: Style.space(30); height: 1 }
-
-            Button {
-              width: Style.space(104)
-              bordered: true
-              text: "Speichern"
-              foreground: Color.accent
-              enabled: root.manualValid
-              opacity: root.manualValid ? 1 : 0.4
-              onClicked: root.saveEdit()
-            }
-            Button {
-              width: Style.space(88)
-              bordered: true
-              text: "Löschen"
-              foreground: Color.urgent
-              onClicked: root.deleteEdit()
-            }
-            Button {
-              width: Style.space(96)
-              bordered: true
-              text: "Abbrechen"
-              onClicked: root.resetForm()
+              Button {
+                visible: root.editingEntry !== null
+                width: Style.spacing.controlHeight
+                height: Style.spacing.controlHeight
+                bordered: true
+                text: "󰆓"
+                fontSize: Style.font.icon
+                foreground: Color.accent
+                enabled: root.manualValid
+                opacity: root.manualValid ? 1 : 0.4
+                tooltipText: "Speichern"
+                onClicked: root.saveEdit()
+              }
+              Button {
+                visible: root.editingEntry !== null
+                width: Style.spacing.controlHeight
+                height: Style.spacing.controlHeight
+                bordered: true
+                text: "󰩺"
+                fontSize: Style.font.icon
+                foreground: Color.urgent
+                tooltipText: "Löschen"
+                onClicked: root.deleteEdit()
+              }
+              Button {
+                visible: root.editingEntry !== null
+                width: Style.spacing.controlHeight
+                height: Style.spacing.controlHeight
+                bordered: true
+                text: "󰅖"
+                fontSize: Style.font.icon
+                tooltipText: "Abbrechen"
+                onClicked: root.resetForm()
+              }
             }
           }
 
