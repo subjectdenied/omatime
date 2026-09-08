@@ -1,0 +1,69 @@
+{
+  "schemaVersion": 1,
+  "id": "chris.timetracker",
+  "name": "Time Tracker",
+  "version": "1.0.0",
+  "author": "Chris",
+  "license": "MIT",
+  "description": "Zeiterfassung im Omarchy-Bar: liest und schreibt das CSV der GNOME-Time-Tracker-App und schlägt für neue Einträge die WLAN-Anmeldezeiten im Büro-Netz vor.",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "BarWidget.qml"
+  },
+  "barWidget": {
+    "displayName": "Time Tracker",
+    "description": "Timer starten/stoppen, Einträge aus tafel_office-WLAN-Zeiten anlegen; Datenbasis ist ~/.local/share/time-tracker/log.csv (kompatibel zur GTK-App).",
+    "category": "Productivity",
+    "allowMultiple": false,
+    "defaultSection": "right",
+    "defaults": {
+      "csvPath": "",
+      "ssid": "tafel_office",
+      "defaultProject": "tafel österreich",
+      "roundMinutes": 15,
+      "targetHours": 7
+    },
+    "schema": [
+      {
+        "key": "csvPath",
+        "type": "path",
+        "label": "Log-CSV",
+        "defaultValue": "",
+        "description": "Pfad zur Time-Tracker-CSV. Leer = ~/.local/share/time-tracker/log.csv"
+      },
+      {
+        "key": "ssid",
+        "type": "string",
+        "label": "Büro-WLAN (SSID)",
+        "defaultValue": "tafel_office",
+        "description": "Anmeldezeiten in dieses WLAN werden als Start/Ende vorgeschlagen."
+      },
+      {
+        "key": "defaultProject",
+        "type": "string",
+        "label": "Standard-Projekt",
+        "defaultValue": "tafel österreich"
+      },
+      {
+        "key": "roundMinutes",
+        "type": "integer",
+        "label": "Vorschläge runden (Minuten)",
+        "min": 0,
+        "max": 30,
+        "step": 5,
+        "defaultValue": 15
+      },
+      {
+        "key": "targetHours",
+        "type": "integer",
+        "label": "Soll-Stunden pro Tag",
+        "min": 1,
+        "max": 12,
+        "step": 1,
+        "defaultValue": 7
+      }
+    ]
+  }
+}
