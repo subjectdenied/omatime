@@ -128,9 +128,20 @@ Panel {
     return false
   }
 
+  // Omarchy ≥ 4.0.3 stellt die Bar-Property nur noch readonly bereit und
+  // bietet dafür eine Setter-Funktion. Nie werfen lassen: ein Fehler hier
+  // würde close() vor controller.hide() abbrechen — das Panel bliebe offen
+  // und hielte den exklusiven Fokus-Prime fest.
   function setCenterHoverRevealSuppressed(value) {
-    if (root.bar && "centerHoverRevealSuppressed" in root.bar)
-      root.bar.centerHoverRevealSuppressed = value
+    if (!root.bar) return
+    try {
+      if (typeof root.bar.setCenterHoverRevealSuppressed === "function")
+        root.bar.setCenterHoverRevealSuppressed(value)
+      else if ("centerHoverRevealSuppressed" in root.bar)
+        root.bar.centerHoverRevealSuppressed = value
+    } catch (e) {
+      console.log("setCenterHoverRevealSuppressed nicht möglich: " + e)
+    }
   }
 
   function refresh() {
