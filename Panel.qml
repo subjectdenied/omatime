@@ -225,16 +225,19 @@ Panel {
   property string newTo: ""
 
   readonly property bool editingRunning: editingEntry !== null && !editingEntry.end
+  // Leeres Bis ist gültig, wenn der bearbeitete Eintrag läuft (läuft weiter)
+  // oder ein NEUER Eintrag als laufender gestartet werden kann.
   readonly property bool manualValid: newFrom !== "" && (
-    (newTo === "" && editingRunning)
+    (newTo === "" && (editingRunning || (editingEntry === null && runningEntry === null)))
     || (newTo !== ""
         && Model.combine(newToDate, Model.parseTimeInput(newTo)).getTime()
            > Model.combine(newFromDate, Model.parseTimeInput(newFrom)).getTime()))
 
   function addManualEntry() {
     if (!manualValid) return
-    addEntry(Model.combine(newFromDate, Model.parseTimeInput(newFrom)),
-             Model.combine(newToDate, Model.parseTimeInput(newTo)))
+    var start = Model.combine(newFromDate, Model.parseTimeInput(newFrom))
+    if (newTo === "") startTimer(start)
+    else addEntry(start, Model.combine(newToDate, Model.parseTimeInput(newTo)))
     resetForm()
   }
 
@@ -252,11 +255,18 @@ Panel {
   function takeoverSession(session) {
     editingEntry = null
     var from = Model.toFormTime(Model.floorDate(session.start, 15), null)
-    var to = Model.toFormTime(Model.ceilDate(session.end || new Date(), 15), session.start)
     newFromDate = from.day
     newFrom = from.time
-    newToDate = to.day
-    newTo = to.time
+    if (session.end) {
+      var to = Model.toFormTime(Model.ceilDate(session.end, 15), session.start)
+      newToDate = to.day
+      newTo = to.time
+    } else {
+      // Noch verbunden: kein Logout, also kein Ende — Anlegen startet dann
+      // einen laufenden Eintrag ab der Login-Zeit.
+      newToDate = from.day
+      newTo = ""
+    }
   }
 
   // ---- edit existing entries ----
@@ -708,7 +718,7 @@ Panel {
                 foreground: Color.accent
                 enabled: root.manualValid
                 opacity: root.manualValid ? 1 : 0.4
-                tooltipText: "Anlegen"
+                tooltipText: root.newTo === "" ? "Als laufenden Eintrag starten" : "Anlegen"
                 onClicked: root.addManualEntry()
               }
 
@@ -752,9 +762,10 @@ Panel {
           // Sichtbarer Grund, warum 󰐕/󰆓 gedimmt sind — sonst wirkt das
           // Formular einfach "kaputt", wenn Bis vor Von liegt.
           Text {
-            visible: root.newFrom !== "" && root.newTo !== "" && !root.manualValid
+            visible: root.newFrom !== "" && !root.manualValid
             textFormat: Text.PlainText
-            text: "⚠ Ende liegt nicht nach dem Beginn"
+            text: root.newTo === "" ? "⚠ Es läuft bereits ein Eintrag – Ende angeben"
+                                    : "⚠ Ende liegt nicht nach dem Beginn"
             color: Color.urgent
             font.family: Style.font.family
             font.pixelSize: Style.font.caption
