@@ -329,6 +329,29 @@ Panel {
     resetForm()
   }
 
+  // Löschen nur nach Rückfrage (Kit-ConfirmDialog über dem Panelinhalt).
+  property bool deleteConfirmOpen: false
+  readonly property string deleteConfirmMessage: editingEntry
+    ? "Eintrag " + Model.fmtDayDate(editingEntry.start) + " " + Model.fmtTime(editingEntry.start)
+      + (editingEntry.end ? "–" + Model.fmtTime(editingEntry.end) : " (läuft)")
+      + " · " + editingEntry.project + " wirklich löschen?"
+    : ""
+  function requestDelete() {
+    if (!editingEntry) return
+    deleteConfirm.selectedIndex = 1
+    deleteConfirmOpen = true
+    Qt.callLater(function() { deleteConfirm.forceActiveFocus() })
+  }
+  function cancelDelete() {
+    deleteConfirmOpen = false
+    Qt.callLater(function() { if (keyCatcher) keyCatcher.forceActiveFocus() })
+  }
+  function confirmDelete() {
+    deleteConfirmOpen = false
+    deleteEdit()
+    Qt.callLater(function() { if (keyCatcher) keyCatcher.forceActiveFocus() })
+  }
+
   function deleteEdit() {
     if (!editingEntry) return
     var id = editingEntry.id
@@ -437,7 +460,25 @@ Panel {
     PanelKeyCatcher {
       id: keyCatcher
       anchors.fill: parent
-      blocked: fromDatePick.popupOpen || toDatePick.popupOpen || fromTimePick.popupOpen || toTimePick.popupOpen || projectPopup.opened
+
+      ConfirmDialog {
+        id: deleteConfirm
+        anchors.fill: parent
+        z: 10
+        opened: root.deleteConfirmOpen
+        message: root.deleteConfirmMessage
+        confirmText: "Löschen"
+        cancelText: "Abbrechen"
+        background: Color.popups.background
+        foreground: Color.popups.text
+        onCanceled: root.cancelDelete()
+        onConfirmed: root.confirmDelete()
+        // Pfeile/Enter/Escape gehen an den Dialog, solange er offen ist.
+        Keys.onPressed: function(event) {
+          if (root.deleteConfirmOpen && deleteConfirm.handleKey(event)) event.accepted = true
+        }
+      }
+      blocked: root.deleteConfirmOpen || fromDatePick.popupOpen || toDatePick.popupOpen || fromTimePick.popupOpen || toTimePick.popupOpen || projectPopup.opened
       onCloseRequested: root.close()
       onReturnRequested: root.runningEntry ? root.stopTimer() : root.startTimer(null)
       onTabRequested: function(direction) { root.switchPanel(direction) }
@@ -757,8 +798,8 @@ Panel {
                 text: "󰩺"
                 fontSize: Style.font.icon
                 foreground: Color.urgent
-                tooltipText: "Löschen"
-                onClicked: root.deleteEdit()
+                tooltipText: "Löschen …"
+                onClicked: root.requestDelete()
               }
               Button {
                 visible: root.editingEntry !== null
