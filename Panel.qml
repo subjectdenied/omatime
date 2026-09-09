@@ -171,6 +171,48 @@ Panel {
     return map
   }
 
+  // ---- Tages-Timeline: Stundenraster ab Arbeitsbeginn, gearbeitete
+  // Segmente, Soll-Marke (Soll netto + Pause, falls fällig), Jetzt-Marke.
+  readonly property var todayTimeline: {
+    nowTick
+    var today = Model.startOfDay(new Date())
+    var segs = []
+    for (var i = 0; i < entries.length; i++) {
+      var e = entries[i]
+      if (!e.start || isVacation(e) || !Model.sameDay(e.start, today)) continue
+      segs.push({ s: e.start, e: e.end || new Date(), running: !e.end })
+    }
+    if (segs.length === 0) return null
+    segs.sort(function(a, b) { return a.s.getTime() - b.s.getTime() })
+    var now = new Date()
+    var first = segs[0].s
+    var last = segs[segs.length - 1].e
+    // Brutto, das für das Netto-Soll nötig ist (Pause kommt oben drauf).
+    var required = targetSecs + (targetSecs > breakAfterSecs ? breakSecs : 0)
+    var acc = 0, target = null
+    for (var j = 0; j < segs.length; j++) {
+      var len = (segs[j].e.getTime() - segs[j].s.getTime()) / 1000
+      if (acc + len >= required) { target = new Date(segs[j].s.getTime() + (required - acc) * 1000); break }
+      acc += len
+    }
+    var reached = target !== null
+    if (!reached) target = new Date(now.getTime() + (required - acc) * 1000) // Projektion: ab jetzt durchgehend
+    var gross = grossByDay[today.toDateString()] ? grossByDay[today.toDateString()].secs : 0
+    var net = netSecs(gross)
+    var hour = 3600000
+    var axisStart = new Date(Math.floor(first.getTime() / hour) * hour)
+    var axisEndRaw = Math.max(target.getTime(), last.getTime(), now.getTime()) + 15 * 60000
+    var axisEnd = new Date(Math.ceil(axisEndRaw / hour) * hour)
+    var hours = []
+    for (var t = axisStart.getTime(); t <= axisEnd.getTime(); t += hour) hours.push(new Date(t))
+    return {
+      axisStart: axisStart, axisEnd: axisEnd, hours: hours, segments: segs,
+      first: first, now: now, target: target, reached: reached,
+      net: net, remaining: Math.max(0, targetSecs - net), over: Math.max(0, net - targetSecs),
+      running: segs[segs.length - 1].running
+    }
+  }
+
   function dayNetSecs(d) {
     var rec = grossByDay[d.toDateString()]
     return rec ? netSecs(rec.secs) : 0
@@ -549,7 +591,7 @@ Panel {
     bar: root.bar
     open: root.opened
     focusTarget: keyCatcher
-    contentWidth: panel.fittedContentWidth(Style.space(533))
+    contentWidth: panel.fittedContentWidth(Style.space(711))
     contentHeight: panel.fittedContentHeight(contentColumn.implicitHeight + Style.space(28))
 
     PanelKeyCatcher {
@@ -955,6 +997,119 @@ Panel {
               + " · Soll " + root.weeklyHours + " h/Woche (" + Model.fmtDurHM(root.targetSecs) + " h/Tag)"
               + (root.breakAfterSecs > 0 && root.breakSecs > 0
                   ? " · Pause " + Math.round(root.breakSecs / 60) + " min ab " + Model.fmtDurHM(root.breakAfterSecs) + " h" : "")
+            color: Qt.darker(root.barForeground, 1.2)
+            font.family: Style.font.family
+            font.pixelSize: Style.font.caption
+          }
+
+          // ---- Tages-Timeline ----
+          PanelSectionHeader {
+            visible: root.todayTimeline !== null
+            text: "Heute"
+            foreground: root.barForeground
+          }
+
+          Item {
+            id: timeline
+            visible: root.todayTimeline !== null
+            width: parent.width
+            height: Style.space(46)
+            readonly property var tl: root.todayTimeline
+            readonly property real x0: tl ? tl.axisStart.getTime() : 0
+            readonly property real x1: tl ? tl.axisEnd.getTime() : 1
+            function xOf(d) { return (d.getTime() - x0) / Math.max(1, x1 - x0) * width }
+
+            // Stundenlinien + Beschriftung
+            Repeater {
+              model: timeline.tl ? timeline.tl.hours : []
+              Item {
+                required property var modelData
+                x: timeline.xOf(modelData)
+                y: 0
+                width: 1
+                height: timeline.height
+                Rectangle { x: 0; y: Style.space(12); width: 1; height: timeline.height - Style.space(12); color: Qt.alpha(root.barForeground, 0.18) }
+                Text {
+                  x: 2; y: 0
+                  textFormat: Text.PlainText
+                  text: Model.pad2(modelData.getHours())
+                  color: Qt.darker(root.barForeground, 1.5)
+                  font.family: Style.font.family
+                  font.pixelSize: Style.font.caption
+                }
+              }
+            }
+
+            // Spur
+            Rectangle {
+              x: 0; y: Style.space(20); width: parent.width; height: Style.space(10)
+              radius: height / 2
+              color: Style.hoverFillFor(root.barForeground, Color.accent)
+            }
+
+            // Gearbeitete Segmente: bis zur Soll-Marke Akzent, darüber Warnfarbe.
+            Repeater {
+              model: timeline.tl ? timeline.tl.segments : []
+              Item {
+                required property var modelData
+                readonly property real sx: timeline.xOf(modelData.s)
+                readonly property real ex: timeline.xOf(modelData.e)
+                readonly property real tx: timeline.xOf(timeline.tl.target)
+                Rectangle {
+                  x: sx; y: Style.space(20); height: Style.space(10)
+                  width: Math.max(0, Math.min(ex, tx) - sx)
+                  radius: height / 2
+                  color: Color.accent
+                }
+                Rectangle {
+                  x: Math.max(sx, tx); y: Style.space(20); height: Style.space(10)
+                  width: Math.max(0, ex - Math.max(sx, tx))
+                  radius: height / 2
+                  color: Color.urgent
+                }
+              }
+            }
+
+            // Soll-Marke
+            Rectangle {
+              visible: timeline.tl !== null
+              x: timeline.tl ? timeline.xOf(timeline.tl.target) - 1 : 0
+              y: Style.space(14); width: 2; height: Style.space(22)
+              color: root.barForeground
+            }
+            Text {
+              visible: timeline.tl !== null
+              x: timeline.tl ? Math.min(timeline.xOf(timeline.tl.target) + 4, timeline.width - implicitWidth) : 0
+              y: Style.space(34)
+              textFormat: Text.PlainText
+              text: timeline.tl ? "Soll " + Model.fmtTime(timeline.tl.target) : ""
+              color: Qt.darker(root.barForeground, 1.3)
+              font.family: Style.font.family
+              font.pixelSize: Style.font.caption
+            }
+
+            // Jetzt-Marke (nur bei laufendem Eintrag)
+            Rectangle {
+              visible: timeline.tl !== null && timeline.tl.running
+              x: timeline.tl ? timeline.xOf(timeline.tl.now) : 0
+              y: Style.space(16); width: 1; height: Style.space(18)
+              color: Color.accent
+            }
+          }
+
+          Text {
+            visible: root.todayTimeline !== null
+            width: parent.width
+            wrapMode: Text.Wrap
+            textFormat: Text.PlainText
+            text: root.todayTimeline
+              ? "Start " + Model.fmtTime(root.todayTimeline.first)
+                + " · gearbeitet " + Model.fmtDurHM(root.todayTimeline.net) + " h netto"
+                + " · Soll " + Model.fmtDurHM(root.targetSecs) + " h"
+                + (root.todayTimeline.over > 0
+                    ? " · über Soll +" + Model.fmtDurHM(root.todayTimeline.over) + " h"
+                    : " · noch " + Model.fmtDurHM(root.todayTimeline.remaining) + " h bis " + Model.fmtTime(root.todayTimeline.target))
+              : ""
             color: Qt.darker(root.barForeground, 1.2)
             font.family: Style.font.family
             font.pixelSize: Style.font.caption

@@ -17,6 +17,9 @@ auf **derselben CSV** — beide Apps können parallel benutzt werden.
 - Manuelle Einträge über Kalender-Picker (Qt MonthGrid) und Zeit-Picker
   (15-min-Raster 06:00–24:00), Über-Nacht-Einträge möglich
 - Einträge per Klick bearbeiten/löschen (Liste virtualisiert, volle Historie)
+- Tages-Timeline: Stundenraster ab Arbeitsbeginn, gearbeitete Segmente
+  (laufender Eintrag live), Soll-Marke (Soll netto + Pause), Jetzt-Marke,
+  Anteil über Soll in Warnfarbe; Textzeile mit gearbeitet/Soll/noch bzw. über
 - Soll/Ist-Balken pro Tag, Summen für Heute/Woche/Monat
 - Wochen-/Monatstrennlinien in der Liste; Homeoffice-Wochentage setzen die
   Beschreibung automatisch
