@@ -53,16 +53,17 @@ Panel {
   // Tagessummen (Sekunden) für die Soll/Ist-Balken in der Liste.
   property var dayTotals: ({})
   onEntriesChanged: {
-    var closed = entries.filter(function(e) { return e.start && e.end })
+    var listed = entries.filter(function(e) { return e.start })
     var totals = {}
-    for (var i = 0; i < closed.length; i++) {
-      var e = closed[i]
+    for (var i = 0; i < listed.length; i++) {
+      var e = listed[i]
+      if (!e.end) continue
       var k = e.start.toDateString()
       totals[k] = (totals[k] || 0) + (e.end.getTime() - e.start.getTime()) / 1000
     }
     dayTotals = totals
-    closed.reverse()
-    recentEntries = closed
+    listed.reverse() // neueste oben; ein laufender Eintrag steht damit ganz oben
+    recentEntries = listed
   }
 
   readonly property real targetSecs: (parseInt(setting("targetHours", 7), 10) || 7) * 3600
@@ -223,9 +224,12 @@ Panel {
   property string newFrom: ""
   property string newTo: ""
 
-  readonly property bool manualValid: newFrom !== "" && newTo !== ""
-    && Model.combine(newToDate, Model.parseTimeInput(newTo)).getTime()
-       > Model.combine(newFromDate, Model.parseTimeInput(newFrom)).getTime()
+  readonly property bool editingRunning: editingEntry !== null && !editingEntry.end
+  readonly property bool manualValid: newFrom !== "" && (
+    (newTo === "" && editingRunning)
+    || (newTo !== ""
+        && Model.combine(newToDate, Model.parseTimeInput(newTo)).getTime()
+           > Model.combine(newFromDate, Model.parseTimeInput(newFrom)).getTime()))
 
   function addManualEntry() {
     if (!manualValid) return
@@ -266,8 +270,12 @@ Panel {
     selectedProject = e.project
     newFromDate = Model.startOfDay(e.start)
     newFrom = Model.fmtTime(e.start)
-    // Ende um Mitternacht des Folgetags entspricht "24:00" am Starttag.
-    if (!Model.sameDay(e.end, e.start) && Model.fmtTime(e.end) === "00:00") {
+    if (!e.end) {
+      // Läuft noch: Bis bleibt leer; Speichern mit leerem Bis lässt ihn laufen.
+      newToDate = Model.startOfDay(e.start)
+      newTo = ""
+    } else if (!Model.sameDay(e.end, e.start) && Model.fmtTime(e.end) === "00:00") {
+      // Ende um Mitternacht des Folgetags entspricht "24:00" am Starttag.
       newToDate = Model.startOfDay(e.start)
       newTo = "24:00"
     } else {
@@ -287,7 +295,7 @@ Panel {
     var target = entries[idx]
     target.project = activeProject
     target.start = Model.combine(newFromDate, Model.parseTimeInput(newFrom))
-    target.end = Model.combine(newToDate, Model.parseTimeInput(newTo))
+    target.end = newTo === "" ? null : Model.combine(newToDate, Model.parseTimeInput(newTo))
     // Neu einsortieren, falls sich der Tag geändert hat.
     entries.splice(idx, 1)
     var i = entries.length
@@ -786,6 +794,8 @@ Panel {
               required property var modelData
               readonly property bool isEditing: root.editingEntry !== null && root.editingEntry.id === modelData.id
               readonly property bool hot: rowHover.hovered
+              readonly property bool running: !modelData.end
+              readonly property double liveSecs: { root.nowTick; return running ? root.runningSecs : (modelData.end.getTime() - modelData.start.getTime()) / 1000 }
 
               width: entryList.width
               height: rowText.implicitHeight + Style.space(6)
@@ -807,7 +817,8 @@ Panel {
                 width: Style.space(54)
                 height: Style.space(7)
 
-                readonly property real isSecs: root.dayTotals[modelData.start.toDateString()] || 0
+                readonly property real isSecs: (root.dayTotals[modelData.start.toDateString()] || 0)
+                  + (root.runningEntry && Model.sameDay(root.runningEntry.start, modelData.start) ? root.runningSecs : 0)
                 readonly property real frac: root.targetSecs > 0 ? Math.min(1, isSecs / root.targetSecs) : 0
                 readonly property bool met: isSecs >= root.targetSecs
 
@@ -835,10 +846,12 @@ Panel {
                 anchors.verticalCenter: parent.verticalCenter
                 textFormat: Text.PlainText
                 text: Model.fmtDayDate(modelData.start) + "  "
-                  + Model.fmtTime(modelData.start) + "–" + Model.fmtTime(modelData.end)
-                  + "  (" + Model.fmtDurHM((modelData.end.getTime() - modelData.start.getTime()) / 1000) + " h)  "
+                  + Model.fmtTime(modelData.start) + "–" + (parent.running ? "     " : Model.fmtTime(modelData.end))
+                  + "  (" + Model.fmtDurHM(parent.liveSecs) + " h)  "
                   + modelData.project
-                color: parent.isEditing || parent.hot ? root.barForeground : Qt.darker(root.barForeground, 1.2)
+                  + (parent.running ? "  󰐊 läuft" : "")
+                color: parent.running ? Color.accent
+                  : parent.isEditing || parent.hot ? root.barForeground : Qt.darker(root.barForeground, 1.2)
                 font.family: Style.font.family
                 font.pixelSize: Style.font.caption
                 elide: Text.ElideRight
