@@ -28,7 +28,9 @@
       "vacationDays": 25,
       "vacationProject": "urlaub",
       "homeofficeDays": "",
-      "homeofficeTopic": "homeoffice"
+      "homeofficeTopic": "homeoffice",
+      "vacationLeft": -1,
+      "vacationLeftDate": ""
     },
     "schema": [
       {
@@ -106,6 +108,23 @@
         "type": "string",
         "label": "Homeoffice-Thema (Beschreibung)",
         "defaultValue": "homeoffice"
+      },
+      {
+        "key": "vacationLeft",
+        "type": "integer",
+        "label": "Tatsächlich übrige Urlaubstage (Stand)",
+        "min": -1,
+        "max": 60,
+        "step": 1,
+        "defaultValue": -1,
+        "description": "Rest-Urlaub zum Stichtag vacationLeftDate; -1 = aus (dann vacationDays minus alle Urlaubstage des Jahres). Urlaubseinträge NACH dem Stichtag werden abgezogen."
+      },
+      {
+        "key": "vacationLeftDate",
+        "type": "string",
+        "label": "Stichtag für vacationLeft",
+        "defaultValue": "",
+        "description": "YYYY-MM-DD; Einträge bis einschließlich dieses Tages gelten als im Rest bereits berücksichtigt."
       }
     ]
   }

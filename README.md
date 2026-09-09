@@ -43,6 +43,8 @@ Im Widget-Eintrag in `~/.config/omarchy/shell.json`:
 | `weeklyHours` | `35` | Wochenstunden (Soll); Tages-Soll = weeklyHours / workDays |
 | `workDays` | `5` | Arbeitstage pro Woche |
 | `vacationDays` | `25` | Urlaubstage pro Jahr |
+| `vacationLeft` | `-1` | Tatsächlich übrige Urlaubstage zum Stichtag `vacationLeftDate` (für Tracking-Start mitten im Jahr); `-1` = aus. Urlaubseinträge nach dem Stichtag werden abgezogen |
+| `vacationLeftDate` | *(leer)* | Stichtag `YYYY-MM-DD` für `vacationLeft` |
 | `homeofficeDays` | *(leer)* | Wochentage, kommagetrennt (`Fr` oder `Mi,Fr`), an denen neue/laufende Einträge automatisch das Homeoffice-Thema als Beschreibung bekommen |
 | `homeofficeTopic` | `homeoffice` | Beschreibungstext für Homeoffice-Tage (Beschreibungsspalte der CSV, Projekt bleibt unverändert) |
 | `vacationProject` | `urlaub` | Einträge dieses Projekts zählen nicht als Arbeitszeit, senken das Tages-Soll auf null und verbrauchen je Tag einen Urlaubstag |

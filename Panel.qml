@@ -70,6 +70,27 @@ Panel {
   readonly property real weeklyHours: parseFloat(setting("weeklyHours", 35)) || 35
   readonly property int workDays: Math.max(1, parseInt(setting("workDays", 5), 10) || 5)
   readonly property int vacationDays: parseInt(setting("vacationDays", 25), 10) || 0
+  // Rest-Urlaub zum Stichtag (für Tracking-Start mitten im Jahr): -1 = aus.
+  readonly property int vacationLeftCfg: parseInt(setting("vacationLeft", -1), 10)
+  readonly property var vacationLeftDate: {
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(setting("vacationLeftDate", "")))
+    return m ? new Date(parseInt(m[1], 10), parseInt(m[2], 10) - 1, parseInt(m[3], 10), 23, 59, 59) : null
+  }
+  readonly property bool vacationOverride: vacationLeftCfg >= 0 && vacationLeftDate !== null
+  // Urlaubstage NACH dem Stichtag (die im Rest noch nicht enthalten sind).
+  readonly property int vacationAfterCutoff: {
+    entries
+    if (!vacationOverride) return 0
+    var days = {}
+    for (var i = 0; i < entries.length; i++) {
+      var e = entries[i]
+      if (e.start && isVacation(e) && e.start.getTime() > vacationLeftDate.getTime()) days[e.start.toDateString()] = true
+    }
+    return Object.keys(days).length
+  }
+  readonly property int vacationRemaining: vacationOverride
+    ? Math.max(0, vacationLeftCfg - vacationAfterCutoff)
+    : Math.max(0, vacationDays - yearStats.vacation)
   readonly property string vacationProject: String(setting("vacationProject", "urlaub")).toLowerCase()
   // Tages-Soll für die Balken und die Überstundenrechnung.
   readonly property real targetSecs: weeklyHours * 3600 / workDays
@@ -900,8 +921,8 @@ Panel {
           }
           Text {
             textFormat: Text.PlainText
-            text: "Urlaub: " + root.yearStats.vacation + " von " + root.vacationDays + " Tagen genommen · "
-              + Math.max(0, root.vacationDays - root.yearStats.vacation) + " übrig"
+            text: "Urlaub: " + root.yearStats.vacation + " Tage genommen · " + root.vacationRemaining + " übrig"
+              + (root.vacationOverride ? " (Stand " + Model.fmtDayDate(root.vacationLeftDate) + ": " + root.vacationLeftCfg + ")" : " von " + root.vacationDays)
               + " · Soll " + root.weeklyHours + " h/Woche (" + Model.fmtDurHM(root.targetSecs) + " h/Tag)"
             color: Qt.darker(root.barForeground, 1.2)
             font.family: Style.font.family
