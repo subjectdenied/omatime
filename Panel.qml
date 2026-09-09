@@ -161,14 +161,40 @@ Panel {
   readonly property var grossByDay: {
     nowTick
     var map = {}
+    var now = new Date()
     for (var i = 0; i < entries.length; i++) {
       var e = entries[i]
       if (!e.start || isVacation(e)) continue
       var k = e.start.toDateString()
-      if (!map[k]) map[k] = { day: Model.startOfDay(e.start), secs: 0 }
+      if (!map[k]) map[k] = { day: Model.startOfDay(e.start), secs: 0, segs: [], target: null }
       map[k].secs += e.end ? (e.end.getTime() - e.start.getTime()) / 1000 : runningSecs
+      map[k].segs.push({ s: e.start, e: e.end || now })
+    }
+    // Soll-Zeitpunkt je Tag: wann das Netto-Soll (brutto inkl. Pause) erreicht
+    // ist — exakt über die Segmente; sonst ab dem letzten Ende projiziert.
+    var required = targetSecs + (targetSecs > breakAfterSecs ? breakSecs : 0)
+    for (var key in map) {
+      var segs = map[key].segs.sort(function(a, b) { return a.s.getTime() - b.s.getTime() })
+      var acc = 0, target = null
+      for (var j = 0; j < segs.length; j++) {
+        var len = (segs[j].e.getTime() - segs[j].s.getTime()) / 1000
+        if (acc + len >= required) { target = new Date(segs[j].s.getTime() + (required - acc) * 1000); break }
+        acc += len
+      }
+      if (!target && segs.length) target = new Date(segs[segs.length - 1].e.getTime() + (required - acc) * 1000)
+      map[key].target = target
     }
     return map
+  }
+
+  // Gemeinsame Achse der Mini-Raster in der Liste: 06:00–20:00.
+  readonly property int rasterStartHour: 6
+  readonly property int rasterEndHour: 20
+  readonly property real rasterWidth: Style.space(176)
+  function rasterX(d, dayStart, width) {
+    var t = (d.getTime() - dayStart.getTime()) / 3600000
+    var f = (t - rasterStartHour) / (rasterEndHour - rasterStartHour)
+    return Math.max(0, Math.min(1, f)) * width
   }
 
   // ---- Tages-Timeline: Stundenraster ab Arbeitsbeginn, gearbeitete
@@ -1116,10 +1142,39 @@ Panel {
           }
 
           // ---- Recent entries ----
-          PanelSectionHeader {
-            text: "Einträge"
-            foreground: root.barForeground
+          Item {
+            width: parent.width
+            height: axisHeader.implicitHeight
             visible: root.recentEntries.length > 0
+
+            PanelSectionHeader {
+              id: axisHeader
+              anchors.left: parent.left
+              text: "Einträge"
+              foreground: root.barForeground
+            }
+
+            // Achse der Mini-Raster (alle 2 h beschriftet), bündig mit der Spalte.
+            Item {
+              anchors.right: parent.right
+              anchors.rightMargin: Style.space(8)
+              anchors.bottom: parent.bottom
+              width: root.rasterWidth
+              height: Style.font.caption + 2
+              Repeater {
+                model: Math.floor((root.rasterEndHour - root.rasterStartHour) / 2) + 1
+                Text {
+                  required property int index
+                  readonly property int hour: root.rasterStartHour + index * 2
+                  x: (hour - root.rasterStartHour) / (root.rasterEndHour - root.rasterStartHour) * root.rasterWidth - implicitWidth / 2
+                  textFormat: Text.PlainText
+                  text: Model.pad2(hour)
+                  color: Qt.darker(root.barForeground, 1.6)
+                  font.family: Style.font.family
+                  font.pixelSize: Style.font.caption - 2
+                }
+              }
+            }
           }
 
           // Virtualisiert: die ListView instanziiert nur sichtbare Zeilen,
@@ -1173,7 +1228,8 @@ Panel {
                   : "transparent"
               }
 
-              // Soll/Ist-Balken: Spur = Soll-Stunden, Füllung = Ist des Tages.
+              // Mini-Raster (gemeinsame Achse 06–20 Uhr): Stundenlinien, Segment
+              // des Eintrags, Anteil über Soll in Warnfarbe, Soll-Marke des Tages.
               Item {
                 id: dayBar
                 visible: !root.isVacation(modelData)
@@ -1181,25 +1237,41 @@ Panel {
                 anchors.rightMargin: Style.space(8)
                 anchors.verticalCenter: parent.verticalCenter
                 anchors.verticalCenterOffset: parent.sepGap / 2
-                width: Style.space(54)
-                height: Style.space(7)
+                width: root.rasterWidth
+                height: Style.space(12)
 
-                readonly property real isSecs: { root.nowTick; return root.dayNetSecs(modelData.start) }
-                readonly property real frac: root.targetSecs > 0 ? Math.min(1, isSecs / root.targetSecs) : 0
-                readonly property bool met: isSecs >= root.targetSecs
+                readonly property var dayStart: Model.startOfDay(modelData.start)
+                readonly property var info: { root.nowTick; return root.grossByDay[modelData.start.toDateString()] || null }
+                readonly property var segEnd: modelData.end || new Date(root.nowTick)
+                readonly property real sx: root.rasterX(modelData.start, dayStart, width)
+                readonly property real ex: root.rasterX(segEnd, dayStart, width)
+                readonly property real tx: info && info.target ? root.rasterX(info.target, dayStart, width) : width
 
-                Rectangle {
-                  anchors.fill: parent
-                  radius: height / 2
-                  color: Style.hoverFillFor(root.barForeground, Color.accent)
+                Repeater {
+                  model: root.rasterEndHour - root.rasterStartHour + 1
+                  Rectangle {
+                    required property int index
+                    x: index / (root.rasterEndHour - root.rasterStartHour) * dayBar.width
+                    y: 0; width: 1; height: dayBar.height
+                    color: Qt.alpha(root.barForeground, index % 2 === 0 ? 0.22 : 0.10)
+                  }
                 }
                 Rectangle {
-                  anchors.left: parent.left
-                  anchors.verticalCenter: parent.verticalCenter
-                  width: Math.max(height, parent.width * parent.frac)
-                  height: parent.height
+                  x: dayBar.sx; y: Style.space(3); height: Style.space(6)
+                  width: Math.max(0, Math.min(dayBar.ex, dayBar.tx) - dayBar.sx)
                   radius: height / 2
-                  color: dayBar.met ? Color.accent : Qt.darker(Color.accent, 1.5)
+                  color: Color.accent
+                }
+                Rectangle {
+                  x: Math.max(dayBar.sx, dayBar.tx); y: Style.space(3); height: Style.space(6)
+                  width: Math.max(0, dayBar.ex - Math.max(dayBar.sx, dayBar.tx))
+                  radius: height / 2
+                  color: Color.urgent
+                }
+                Rectangle {
+                  visible: dayBar.info !== null && dayBar.info.target !== null
+                  x: dayBar.tx - 1; y: 0; width: 2; height: dayBar.height
+                  color: Qt.alpha(root.barForeground, 0.7)
                 }
               }
 

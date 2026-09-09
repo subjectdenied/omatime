@@ -20,7 +20,8 @@ auf **derselben CSV** — beide Apps können parallel benutzt werden.
 - Tages-Timeline: Stundenraster ab Arbeitsbeginn, gearbeitete Segmente
   (laufender Eintrag live), Soll-Marke (Soll netto + Pause), Jetzt-Marke,
   Anteil über Soll in Warnfarbe; Textzeile mit gearbeitet/Soll/noch bzw. über
-- Soll/Ist-Balken pro Tag, Summen für Heute/Woche/Monat
+- Mini-Raster je Listeneintrag auf gemeinsamer 06–20-Uhr-Achse (Stundenlinien,
+  Segment, Anteil über Soll, Soll-Marke des Tages); Summen für Heute/Woche/Monat
 - Wochen-/Monatstrennlinien in der Liste; Homeoffice-Wochentage setzen die
   Beschreibung automatisch
 - Überstunden Woche/Monat/Jahr (Ist − Werktage-bis-heute × Tages-Soll,
