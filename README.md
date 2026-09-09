@@ -17,8 +17,9 @@ auf **derselben CSV** — beide Apps können parallel benutzt werden.
 - Manuelle Einträge über Kalender-Picker (Qt MonthGrid) und Zeit-Picker
   (15-min-Raster 06:00–24:00), Über-Nacht-Einträge möglich
 - Einträge per Klick bearbeiten/löschen (Liste virtualisiert, volle Historie)
-- Soll/Ist-Balken pro Tag (Soll-Stunden konfigurierbar), Summen für
-  Heute/Woche/Monat
+- Soll/Ist-Balken pro Tag, Summen für Heute/Woche/Monat
+- Überstunden Woche/Monat/Jahr (Ist − Werktage-bis-heute × Tages-Soll,
+  Urlaubstage senken das Soll) und Urlaubskonto (genommen/übrig)
 
 ## Installation
 
@@ -37,7 +38,10 @@ Im Widget-Eintrag in `~/.config/omarchy/shell.json`:
 | `ssid` | *(leer)* | Büro-WLAN für Vorschläge; leer = aktuell verbundenes WLAN (Autodetect via nmcli) |
 | `defaultProject` | `tafel österreich` | Projekt für neue Einträge |
 | `roundMinutes` | `15` | Rundung der WLAN-Vorschläge |
-| `targetHours` | `7` | Soll-Stunden pro Tag (Balken) |
+| `weeklyHours` | `35` | Wochenstunden (Soll); Tages-Soll = weeklyHours / workDays |
+| `workDays` | `5` | Arbeitstage pro Woche |
+| `vacationDays` | `25` | Urlaubstage pro Jahr |
+| `vacationProject` | `urlaub` | Einträge dieses Projekts zählen nicht als Arbeitszeit, senken das Tages-Soll auf null und verbrauchen je Tag einen Urlaubstag |
 
 ## Datenformat
 

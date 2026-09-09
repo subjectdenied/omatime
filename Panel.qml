@@ -57,7 +57,7 @@ Panel {
     var totals = {}
     for (var i = 0; i < listed.length; i++) {
       var e = listed[i]
-      if (!e.end) continue
+      if (!e.end || isVacation(e)) continue
       var k = e.start.toDateString()
       totals[k] = (totals[k] || 0) + (e.end.getTime() - e.start.getTime()) / 1000
     }
@@ -66,7 +66,36 @@ Panel {
     recentEntries = listed
   }
 
-  readonly property real targetSecs: (parseInt(setting("targetHours", 7), 10) || 7) * 3600
+  // ---- Soll-Konfiguration ----
+  readonly property real weeklyHours: parseFloat(setting("weeklyHours", 35)) || 35
+  readonly property int workDays: Math.max(1, parseInt(setting("workDays", 5), 10) || 5)
+  readonly property int vacationDays: parseInt(setting("vacationDays", 25), 10) || 0
+  readonly property string vacationProject: String(setting("vacationProject", "urlaub")).toLowerCase()
+  // Tages-Soll für die Balken und die Überstundenrechnung.
+  readonly property real targetSecs: weeklyHours * 3600 / workDays
+
+  function isVacation(e) { return String(e.project || "").toLowerCase() === vacationProject }
+
+  // Ist-Arbeitszeit, Urlaubstage und Soll (Werktage bis heute minus
+  // Urlaubs-Werktage, mal Tages-Soll) seit `since`.
+  function periodStats(since) {
+    var actual = 0, vacDays = {}
+    for (var i = 0; i < entries.length; i++) {
+      var e = entries[i]
+      if (!e.start || e.start.getTime() < since.getTime()) continue
+      if (isVacation(e)) { vacDays[e.start.toDateString()] = e.start; continue }
+      actual += e.end ? (e.end.getTime() - e.start.getTime()) / 1000 : runningSecs
+    }
+    var vacCount = 0, vacWeekdays = 0
+    for (var k in vacDays) { vacCount++; if (Model.isWeekday(vacDays[k])) vacWeekdays++ }
+    var workdays = Math.max(0, Model.weekdaysBetween(since, new Date()) - vacWeekdays)
+    var target = workdays * targetSecs
+    return { actual: actual, target: target, surplus: actual - target, vacation: vacCount }
+  }
+
+  readonly property var weekStats: { nowTick; return periodStats(Model.startOfWeek(new Date())) }
+  readonly property var monthStats: { nowTick; return periodStats(Model.startOfMonth(new Date())) }
+  readonly property var yearStats: { nowTick; return periodStats(Model.startOfYear(new Date())) }
   readonly property string activeProject: selectedProject !== "" ? selectedProject
     : (runningEntry ? runningEntry.project : defaultProject)
   readonly property double runningSecs: runningEntry && runningEntry.start
@@ -85,7 +114,7 @@ Panel {
     var sum = 0
     for (var i = 0; i < entries.length; i++) {
       var e = entries[i]
-      if (!e.start || e.start.getTime() < since.getTime()) continue
+      if (!e.start || e.start.getTime() < since.getTime() || isVacation(e)) continue
       sum += e.end ? (e.end.getTime() - e.start.getTime()) / 1000 : runningSecs
     }
     return sum
@@ -836,6 +865,27 @@ Panel {
             font.bold: true
           }
 
+          // Überstunden = Ist − Soll bis heute (Werktage × Tages-Soll, Urlaub
+          // senkt das Soll); Urlaub = verbrauchte Tage im Kalenderjahr.
+          Text {
+            textFormat: Text.PlainText
+            text: "Überstunden: Woche " + Model.fmtSigned(root.weekStats.surplus)
+              + " · Monat " + Model.fmtSigned(root.monthStats.surplus)
+              + " · Jahr " + Model.fmtSigned(root.yearStats.surplus) + " h"
+            color: Qt.darker(root.barForeground, 1.2)
+            font.family: Style.font.family
+            font.pixelSize: Style.font.caption
+          }
+          Text {
+            textFormat: Text.PlainText
+            text: "Urlaub: " + root.yearStats.vacation + " von " + root.vacationDays + " Tagen genommen · "
+              + Math.max(0, root.vacationDays - root.yearStats.vacation) + " übrig"
+              + " · Soll " + root.weeklyHours + " h/Woche (" + Model.fmtDurHM(root.targetSecs) + " h/Tag)"
+            color: Qt.darker(root.barForeground, 1.2)
+            font.family: Style.font.family
+            font.pixelSize: Style.font.caption
+          }
+
           // ---- Recent entries ----
           PanelSectionHeader {
             text: "Einträge"
@@ -877,6 +927,7 @@ Panel {
               // Soll/Ist-Balken: Spur = Soll-Stunden, Füllung = Ist des Tages.
               Item {
                 id: dayBar
+                visible: !root.isVacation(modelData)
                 anchors.right: parent.right
                 anchors.rightMargin: Style.space(8)
                 anchors.verticalCenter: parent.verticalCenter

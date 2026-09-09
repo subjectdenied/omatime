@@ -23,7 +23,10 @@
       "ssid": "",
       "defaultProject": "tafel österreich",
       "roundMinutes": 15,
-      "targetHours": 7
+      "weeklyHours": 35,
+      "workDays": 5,
+      "vacationDays": 25,
+      "vacationProject": "urlaub"
     },
     "schema": [
       {
@@ -56,13 +59,38 @@
         "defaultValue": 15
       },
       {
-        "key": "targetHours",
+        "key": "weeklyHours",
         "type": "integer",
-        "label": "Soll-Stunden pro Tag",
+        "label": "Wochenstunden (Soll)",
         "min": 1,
-        "max": 12,
+        "max": 60,
         "step": 1,
-        "defaultValue": 7
+        "defaultValue": 35
+      },
+      {
+        "key": "workDays",
+        "type": "integer",
+        "label": "Arbeitstage pro Woche",
+        "min": 1,
+        "max": 7,
+        "step": 1,
+        "defaultValue": 5
+      },
+      {
+        "key": "vacationDays",
+        "type": "integer",
+        "label": "Urlaubstage pro Jahr",
+        "min": 0,
+        "max": 60,
+        "step": 1,
+        "defaultValue": 25
+      },
+      {
+        "key": "vacationProject",
+        "type": "string",
+        "label": "Urlaubs-Projekt",
+        "defaultValue": "urlaub",
+        "description": "Einträge dieses Projekts zählen nicht als Arbeitszeit und verbrauchen je Tag einen Urlaubstag."
       }
     ]
   }

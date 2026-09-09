@@ -64,6 +64,27 @@ function startOfWeek(d) {
 }
 
 function startOfMonth(d) { return new Date(d.getFullYear(), d.getMonth(), 1) }
+function startOfYear(d) { return new Date(d.getFullYear(), 0, 1) }
+
+function isWeekday(d) { var w = d.getDay(); return w >= 1 && w <= 5 }
+
+// Anzahl Mo–Fr-Tage von `from` bis `to` (beide inklusive, Tagesgrenzen).
+function weekdaysBetween(from, to) {
+  var n = 0
+  var d = startOfDay(from)
+  var end = startOfDay(to).getTime()
+  while (d.getTime() <= end) {
+    if (isWeekday(d)) n++
+    d = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1)
+  }
+  return n
+}
+
+// Vorzeichenbehaftete Stundenangabe für Überstunden: "+1:30" / "−2:15".
+function fmtSigned(secs) {
+  var s = Math.round(secs)
+  return (s < 0 ? "−" : "+") + fmtDurHM(Math.abs(s))
+}
 
 // "6:45" for stats, "2:34:56" for the live timer.
 function fmtDurHM(secs) {
