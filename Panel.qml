@@ -236,10 +236,12 @@ Panel {
   property string newTo: ""
 
   readonly property bool editingRunning: editingEntry !== null && !editingEntry.end
-  // Leeres Bis ist gültig, wenn der bearbeitete Eintrag läuft (läuft weiter)
-  // oder ein NEUER Eintrag als laufender gestartet werden kann.
+  // Leeres Bis ist gültig, solange kein ANDERER Eintrag läuft: der bearbeitete
+  // läuft dann (weiter), ein neuer wird als laufender gestartet.
+  readonly property bool otherRunning: runningEntry !== null
+    && (editingEntry === null || runningEntry.id !== editingEntry.id)
   readonly property bool manualValid: newFrom !== "" && (
-    (newTo === "" && (editingRunning || (editingEntry === null && runningEntry === null)))
+    (newTo === "" && !otherRunning)
     || (newTo !== ""
         && Model.combine(newToDate, Model.parseTimeInput(newTo)).getTime()
            > Model.combine(newFromDate, Model.parseTimeInput(newFrom)).getTime()))
@@ -263,8 +265,9 @@ Panel {
 
   // WLAN-Session ins Formular übernehmen: Login auf volle 15 min abrunden,
   // Logout (oder jetzt, falls noch verbunden) aufrunden.
+  // Ein gerade bearbeiteter Eintrag bleibt in Bearbeitung — die Werte
+  // landen im Formular, 󰆓 aktualisiert dann diesen Eintrag.
   function takeoverSession(session) {
-    editingEntry = null
     var from = Model.toFormTime(Model.floorDate(session.start, 15), null)
     newFromDate = from.day
     newFrom = from.time
@@ -775,7 +778,7 @@ Panel {
           Text {
             visible: root.newFrom !== "" && !root.manualValid
             textFormat: Text.PlainText
-            text: root.newTo === "" ? "⚠ Es läuft bereits ein Eintrag – Ende angeben"
+            text: root.newTo === "" ? "⚠ Es läuft bereits ein anderer Eintrag – Ende angeben"
                                     : "⚠ Ende liegt nicht nach dem Beginn"
             color: Color.urgent
             font.family: Style.font.family
