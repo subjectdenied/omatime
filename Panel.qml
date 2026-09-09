@@ -912,6 +912,8 @@ Panel {
           // senkt das Soll); Urlaub = verbrauchte Tage im Kalenderjahr.
           Text {
             textFormat: Text.PlainText
+            width: parent.width
+            wrapMode: Text.Wrap
             text: "Überstunden: Woche " + Model.fmtSigned(root.weekStats.surplus)
               + " · Monat " + Model.fmtSigned(root.monthStats.surplus)
               + " · Jahr " + Model.fmtSigned(root.yearStats.surplus) + " h"
@@ -921,6 +923,8 @@ Panel {
           }
           Text {
             textFormat: Text.PlainText
+            width: parent.width
+            wrapMode: Text.Wrap
             text: "Urlaub: " + root.yearStats.vacation + " Tage genommen · " + root.vacationRemaining + " übrig"
               + (root.vacationOverride ? " (Stand " + Model.fmtDayDate(root.vacationLeftDate) + ": " + root.vacationLeftCfg + ")" : " von " + root.vacationDays)
               + " · Soll " + root.weeklyHours + " h/Woche (" + Model.fmtDurHM(root.targetSecs) + " h/Tag)"
