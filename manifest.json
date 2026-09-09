@@ -31,7 +31,9 @@
       "homeofficeTopic": "homeoffice",
       "baseDate": "",
       "baseVacationLeft": -1,
-      "baseSurplusHours": ""
+      "baseSurplusHours": "",
+      "breakAfterHours": 6,
+      "breakMinutes": 30
     },
     "schema": [
       {
@@ -133,6 +135,25 @@
         "label": "Überstunden am Stichtag",
         "defaultValue": "",
         "description": "\"11:46\" (h:mm) oder \"11.5\" (Dezimalstunden), auch negativ; leer = aus."
+      },
+      {
+        "key": "breakAfterHours",
+        "type": "integer",
+        "label": "Pause abziehen ab (Stunden/Tag)",
+        "min": 0,
+        "max": 12,
+        "step": 1,
+        "defaultValue": 6,
+        "description": "Liegt die Brutto-Arbeitszeit eines Tages über diesem Wert, wird die Pause automatisch abgezogen. 0 = aus."
+      },
+      {
+        "key": "breakMinutes",
+        "type": "integer",
+        "label": "Pausenlänge (Minuten)",
+        "min": 0,
+        "max": 120,
+        "step": 5,
+        "defaultValue": 30
       }
     ]
   }

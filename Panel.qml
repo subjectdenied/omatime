@@ -118,12 +118,11 @@ Panel {
   // Ist-Arbeitszeit, Urlaubstage und Soll (Werktage bis heute minus
   // Urlaubs-Werktage, mal Tages-Soll) seit `since`.
   function periodStats(since) {
-    var actual = 0, vacDays = {}
+    var actual = totalSince(since), vacDays = {}
     for (var i = 0; i < entries.length; i++) {
       var e = entries[i]
       if (!e.start || e.start.getTime() < since.getTime()) continue
-      if (isVacation(e)) { vacDays[e.start.toDateString()] = e.start; continue }
-      actual += e.end ? (e.end.getTime() - e.start.getTime()) / 1000 : runningSecs
+      if (isVacation(e)) vacDays[e.start.toDateString()] = e.start
     }
     var vacCount = 0, vacWeekdays = 0
     for (var k in vacDays) { vacCount++; if (Model.isWeekday(vacDays[k])) vacWeekdays++ }
@@ -149,12 +148,39 @@ Panel {
     return null
   }
 
-  function totalSince(since) {
-    var sum = 0
+  // ---- Pausenregel: über breakAfterHours Brutto am Tag werden breakMinutes
+  // abgezogen (Einträge bleiben unverändert; nur die Auswertung ist netto).
+  readonly property real breakAfterSecs: (parseFloat(setting("breakAfterHours", 6)) || 0) * 3600
+  readonly property real breakSecs: (parseInt(setting("breakMinutes", 30), 10) || 0) * 60
+  function netSecs(gross) {
+    return (breakAfterSecs > 0 && breakSecs > 0 && gross > breakAfterSecs) ? Math.max(0, gross - breakSecs) : gross
+  }
+
+  // Brutto-Arbeitszeit je Tag (ohne Urlaub, laufender Eintrag live):
+  // { "Tue Sep 08 2026": { day: Date, secs: n }, … }
+  readonly property var grossByDay: {
+    nowTick
+    var map = {}
     for (var i = 0; i < entries.length; i++) {
       var e = entries[i]
-      if (!e.start || e.start.getTime() < since.getTime() || isVacation(e)) continue
-      sum += e.end ? (e.end.getTime() - e.start.getTime()) / 1000 : runningSecs
+      if (!e.start || isVacation(e)) continue
+      var k = e.start.toDateString()
+      if (!map[k]) map[k] = { day: Model.startOfDay(e.start), secs: 0 }
+      map[k].secs += e.end ? (e.end.getTime() - e.start.getTime()) / 1000 : runningSecs
+    }
+    return map
+  }
+
+  function dayNetSecs(d) {
+    var rec = grossByDay[d.toDateString()]
+    return rec ? netSecs(rec.secs) : 0
+  }
+
+  function totalSince(since) {
+    var sum = 0
+    for (var k in grossByDay) {
+      var rec = grossByDay[k]
+      if (rec.day.getTime() >= Model.startOfDay(since).getTime()) sum += netSecs(rec.secs)
     }
     return sum
   }
@@ -927,6 +953,8 @@ Panel {
             text: "Urlaub: " + root.yearStats.vacation + " Tage genommen · " + root.vacationRemaining + " übrig"
               + (root.vacationOverride ? " (Stand " + Model.fmtDayDate(root.baseDate) + ": " + root.baseVacationLeft + ")" : " von " + root.vacationDays)
               + " · Soll " + root.weeklyHours + " h/Woche (" + Model.fmtDurHM(root.targetSecs) + " h/Tag)"
+              + (root.breakAfterSecs > 0 && root.breakSecs > 0
+                  ? " · Pause " + Math.round(root.breakSecs / 60) + " min ab " + Model.fmtDurHM(root.breakAfterSecs) + " h" : "")
             color: Qt.darker(root.barForeground, 1.2)
             font.family: Style.font.family
             font.pixelSize: Style.font.caption
@@ -1001,8 +1029,7 @@ Panel {
                 width: Style.space(54)
                 height: Style.space(7)
 
-                readonly property real isSecs: (root.dayTotals[modelData.start.toDateString()] || 0)
-                  + (root.runningEntry && Model.sameDay(root.runningEntry.start, modelData.start) ? root.runningSecs : 0)
+                readonly property real isSecs: { root.nowTick; return root.dayNetSecs(modelData.start) }
                 readonly property real frac: root.targetSecs > 0 ? Math.min(1, isSecs / root.targetSecs) : 0
                 readonly property bool met: isSecs >= root.targetSecs
 

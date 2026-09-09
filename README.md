@@ -48,6 +48,8 @@ Im Widget-Eintrag in `~/.config/omarchy/shell.json`:
 | `baseSurplusHours` | *(leer)* | Überstunden am Stichtag, `"11:46"` (h:mm) oder `"11.5"` (dezimal), auch negativ; leer = aus |
 | `homeofficeDays` | *(leer)* | Wochentage, kommagetrennt (`Fr` oder `Mi,Fr`), an denen neue/laufende Einträge automatisch das Homeoffice-Thema als Beschreibung bekommen |
 | `homeofficeTopic` | `homeoffice` | Beschreibungstext für Homeoffice-Tage (Beschreibungsspalte der CSV, Projekt bleibt unverändert) |
+| `breakAfterHours` | `6` | Liegt die Brutto-Arbeitszeit eines Tages darüber, wird die Pause automatisch abgezogen (Balken, Summen, Überstunden); `0` = aus |
+| `breakMinutes` | `30` | Länge der abgezogenen Pause |
 | `vacationProject` | `urlaub` | Einträge dieses Projekts zählen nicht als Arbeitszeit, senken das Tages-Soll auf null und verbrauchen je Tag einen Urlaubstag |
 
 ## Datenformat
