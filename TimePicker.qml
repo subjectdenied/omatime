@@ -83,9 +83,12 @@ Item {
             bordered: root.selHour === hour
             selected: root.selHour === hour
             text: hour === 24 ? "24" : Model.pad2(hour)
+            // Stunde übernimmt sofort als HH:00 (Popup bleibt für die
+            // Minuten offen) — wer nur die Stunde klickt, verliert nichts.
             onClicked: {
-              if (hour === 24) root.commit(24, 0)
-              else root.selHour = hour
+              if (hour === 24) { root.commit(24, 0); return }
+              root.selHour = hour
+              root.changed(Model.pad2(hour) + ":00")
             }
           }
         }

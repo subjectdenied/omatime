@@ -32,6 +32,9 @@ Panel {
   readonly property string defaultProject: setting("defaultProject", "tafel österreich")
   readonly property int roundMinutes: parseInt(setting("roundMinutes", 5), 10) || 0
 
+  // Diagnose: Instanz-Tag (eine Panel-Instanz pro Monitor-Bar)
+  readonly property string inst: Math.random().toString(36).slice(2, 6)
+
   // ---- state ----
   property var entries: []
   property var projects: []
@@ -144,7 +147,7 @@ Panel {
     watchChanges: true
     atomicWrites: true
     printErrors: true
-    onSaveFailed: function(error) { console.log("timetracker SAVE FAILED: " + error) }
+    onSaveFailed: function(error) { console.log("timetracker[" + root.inst + "] SAVE FAILED: " + error) }
     onFileChanged: reload()
     onLoaded: {
       root.entries = Model.parseLog(text())
@@ -161,13 +164,14 @@ Panel {
         Quickshell.execDetached(["cp", "-n", root.csvPath, root.csvPath + ".omarchy-shell.bak"])
       }
     }
-    onLoadFailed: root.logLoaded = false
+    onLoadFailed: function(error) { root.logLoaded = false; console.log("timetracker[" + root.inst + "] LOAD FAILED: " + error) }
   }
 
   function save() {
     // Only overwrite a file we actually parsed — never clobber the log with
     // an empty list because the initial read failed.
-    if (!logLoaded) return
+    if (!logLoaded) { console.log("timetracker[" + root.inst + "] save skipped: not loaded"); return }
+    console.log("timetracker[" + root.inst + "] save " + entries.length + " entries")
     logFile.setText(Model.serializeLog(entries))
     // setText schreibt asynchron, und ein dazwischenkommendes reload()
     // (Datei-Watcher einer der Panel-Instanzen) CANCELT den Schreibjob still.
@@ -239,11 +243,26 @@ Panel {
     newTo = ""
   }
 
+  // WLAN-Session ins Formular übernehmen: Login auf volle 15 min abrunden,
+  // Logout (oder jetzt, falls noch verbunden) aufrunden.
+  function takeoverSession(session) {
+    editingEntry = null
+    var from = Model.toFormTime(Model.floorDate(session.start, 15), null)
+    var to = Model.toFormTime(Model.ceilDate(session.end || new Date(), 15), session.start)
+    newFromDate = from.day
+    newFrom = from.time
+    newToDate = to.day
+    newTo = to.time
+  }
+
   // ---- edit existing entries ----
   property var editingEntry: null
 
   function startEdit(e) {
-    editingEntry = e
+    // Delegates liefern modelData als KOPIE (QVariantMap-Konvertierung des
+    // JS-Array-Modells) — immer das Original aus `entries` per ID auflösen,
+    // sonst mutiert saveEdit ins Leere und die CSV bleibt unverändert.
+    editingEntry = entries.find(function(x) { return x.id === e.id }) || e
     selectedProject = e.project
     newFromDate = Model.startOfDay(e.start)
     newFrom = Model.fmtTime(e.start)
@@ -258,25 +277,30 @@ Panel {
   }
 
   function saveEdit() {
-    if (!editingEntry || !manualValid) return
-    editingEntry.project = activeProject
-    editingEntry.start = Model.combine(newFromDate, Model.parseTimeInput(newFrom))
-    editingEntry.end = Model.combine(newToDate, Model.parseTimeInput(newTo))
-    // Neu einsortieren, falls sich der Tag geändert hat.
-    var idx = entries.indexOf(editingEntry)
-    if (idx >= 0) {
-      entries.splice(idx, 1)
-      var i = entries.length
-      while (i > 0 && entries[i - 1].start && entries[i - 1].start.getTime() > editingEntry.start.getTime()) i--
-      entries.splice(i, 0, editingEntry)
+    if (!editingEntry || !manualValid) {
+      console.log("timetracker[" + root.inst + "] saveEdit skipped: editing=" + (editingEntry ? editingEntry.id : "null") + " valid=" + manualValid)
+      return
     }
+    var id = editingEntry.id
+    var idx = entries.findIndex(function(x) { return x.id === id })
+    if (idx < 0) { console.log("timetracker[" + root.inst + "] saveEdit: id " + id + " nicht in entries"); resetForm(); return }
+    var target = entries[idx]
+    target.project = activeProject
+    target.start = Model.combine(newFromDate, Model.parseTimeInput(newFrom))
+    target.end = Model.combine(newToDate, Model.parseTimeInput(newTo))
+    // Neu einsortieren, falls sich der Tag geändert hat.
+    entries.splice(idx, 1)
+    var i = entries.length
+    while (i > 0 && entries[i - 1].start && entries[i - 1].start.getTime() > target.start.getTime()) i--
+    entries.splice(i, 0, target)
     save()
     resetForm()
   }
 
   function deleteEdit() {
     if (!editingEntry) return
-    var idx = entries.indexOf(editingEntry)
+    var id = editingEntry.id
+    var idx = entries.findIndex(function(x) { return x.id === id })
     if (idx >= 0) {
       entries.splice(idx, 1)
       save()
@@ -375,7 +399,7 @@ Panel {
     bar: root.bar
     open: root.opened
     focusTarget: keyCatcher
-    contentWidth: panel.fittedContentWidth(Style.space(400))
+    contentWidth: panel.fittedContentWidth(Style.space(533))
     contentHeight: panel.fittedContentHeight(contentColumn.implicitHeight + Style.space(28))
 
     PanelKeyCatcher {
@@ -534,34 +558,55 @@ Panel {
             model: root.wifiSessions
 
             Item {
+              id: sessionRow
               required property var modelData
               readonly property var sStart: Model.roundDate(modelData.start, root.roundMinutes)
-              readonly property var sEnd: modelData.end ? Model.roundDate(modelData.end, root.roundMinutes) : null
               readonly property bool covered: root.suggestionCovered(modelData)
 
               width: contentColumn.width
               height: Style.spacing.controlHeight + Style.space(4)
 
+              // Echte Login-/Logout-Zeiten (ungerundet); die Übernahme rundet.
               Text {
                 anchors.left: parent.left
+                anchors.right: sessionActions.left
+                anchors.rightMargin: Style.space(8)
                 anchors.verticalCenter: parent.verticalCenter
                 textFormat: Text.PlainText
-                text: Model.fmtTime(sStart) + " → " + (sEnd ? Model.fmtTime(sEnd) : "jetzt")
-                  + (covered ? "  ✓ erfasst" : "")
-                color: covered ? Qt.darker(root.barForeground, 1.4) : root.barForeground
+                elide: Text.ElideRight
+                text: "Login " + Model.fmtTime(sessionRow.modelData.start)
+                  + " → Logout " + (sessionRow.modelData.end ? Model.fmtTime(sessionRow.modelData.end) : "–")
+                  + (sessionRow.covered ? "  ✓ erfasst" : "")
+                color: sessionRow.covered ? Qt.darker(root.barForeground, 1.4) : root.barForeground
                 font.family: Style.font.family
                 font.pixelSize: Style.font.body
               }
 
-              Button {
+              Row {
+                id: sessionActions
                 anchors.right: parent.right
                 anchors.verticalCenter: parent.verticalCenter
-                visible: !parent.covered && !(root.runningEntry && !parent.sEnd)
-                bordered: true
-                text: parent.sEnd ? "Eintrag anlegen" : "Ab " + Model.fmtTime(parent.sStart) + " starten"
-                onClicked: {
-                  if (parent.sEnd) root.addEntry(parent.sStart, parent.sEnd)
-                  else root.startTimer(parent.sStart)
+                spacing: Style.space(4)
+
+                Button {
+                  visible: !sessionRow.covered && !sessionRow.modelData.end && root.runningEntry === null
+                  width: Style.spacing.controlHeight
+                  height: Style.spacing.controlHeight
+                  bordered: true
+                  text: "󰐊"
+                  fontSize: Style.font.icon
+                  foreground: Color.accent
+                  tooltipText: "Timer ab " + Model.fmtTime(sessionRow.sStart) + " starten"
+                  onClicked: root.startTimer(sessionRow.sStart)
+                }
+                Button {
+                  width: Style.spacing.controlHeight
+                  height: Style.spacing.controlHeight
+                  bordered: true
+                  text: "󰇚"
+                  fontSize: Style.font.icon
+                  tooltipText: "Ins Formular übernehmen (Login ab-, Logout aufgerundet auf 15 min)"
+                  onClicked: root.takeoverSession(sessionRow.modelData)
                 }
               }
             }
@@ -696,6 +741,17 @@ Panel {
             }
           }
 
+          // Sichtbarer Grund, warum 󰐕/󰆓 gedimmt sind — sonst wirkt das
+          // Formular einfach "kaputt", wenn Bis vor Von liegt.
+          Text {
+            visible: root.newFrom !== "" && root.newTo !== "" && !root.manualValid
+            textFormat: Text.PlainText
+            text: "⚠ Ende liegt nicht nach dem Beginn"
+            color: Color.urgent
+            font.family: Style.font.family
+            font.pixelSize: Style.font.caption
+          }
+
           // ---- Totals ----
           Text {
             textFormat: Text.PlainText
@@ -728,7 +784,7 @@ Panel {
 
             delegate: Item {
               required property var modelData
-              readonly property bool isEditing: root.editingEntry === modelData
+              readonly property bool isEditing: root.editingEntry !== null && root.editingEntry.id === modelData.id
               readonly property bool hot: rowHover.hovered
 
               width: entryList.width

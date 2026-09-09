@@ -82,6 +82,26 @@ function roundDate(d, minutes) {
   return new Date(Math.round(d.getTime() / step) * step)
 }
 
+// WLAN-Übernahme: Login abrunden, Logout aufrunden (volle Viertelstunden).
+function floorDate(d, minutes) {
+  var step = minutes * 60000
+  return new Date(Math.floor(d.getTime() / step) * step)
+}
+
+function ceilDate(d, minutes) {
+  var step = minutes * 60000
+  return new Date(Math.ceil(d.getTime() / step) * step)
+}
+
+// Date -> {day: Date(Mitternacht), time: "HH:MM"} für die Formular-Picker;
+// Mitternacht des Folgetags wird als "24:00" am Vortag ausgedrückt.
+function toFormTime(d, prevDay) {
+  if (prevDay && d.getHours() === 0 && d.getMinutes() === 0 && !sameDay(d, prevDay)) {
+    return { day: startOfDay(prevDay), time: "24:00" }
+  }
+  return { day: startOfDay(d), time: fmtTime(d) }
+}
+
 // ------------------------------------------------------------------ csv ----
 
 function parseCsv(text) {
