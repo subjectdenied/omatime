@@ -18,6 +18,8 @@ auf **derselben CSV** — beide Apps können parallel benutzt werden.
   (15-min-Raster 06:00–24:00), Über-Nacht-Einträge möglich
 - Einträge per Klick bearbeiten/löschen (Liste virtualisiert, volle Historie)
 - Soll/Ist-Balken pro Tag, Summen für Heute/Woche/Monat
+- Wochen-/Monatstrennlinien in der Liste; Homeoffice-Wochentage setzen die
+  Beschreibung automatisch
 - Überstunden Woche/Monat/Jahr (Ist − Werktage-bis-heute × Tages-Soll,
   Urlaubstage senken das Soll) und Urlaubskonto (genommen/übrig)
 
@@ -41,6 +43,8 @@ Im Widget-Eintrag in `~/.config/omarchy/shell.json`:
 | `weeklyHours` | `35` | Wochenstunden (Soll); Tages-Soll = weeklyHours / workDays |
 | `workDays` | `5` | Arbeitstage pro Woche |
 | `vacationDays` | `25` | Urlaubstage pro Jahr |
+| `homeofficeDays` | *(leer)* | Wochentage, kommagetrennt (`Fr` oder `Mi,Fr`), an denen neue/laufende Einträge automatisch das Homeoffice-Thema als Beschreibung bekommen |
+| `homeofficeTopic` | `homeoffice` | Beschreibungstext für Homeoffice-Tage (Beschreibungsspalte der CSV, Projekt bleibt unverändert) |
 | `vacationProject` | `urlaub` | Einträge dieses Projekts zählen nicht als Arbeitszeit, senken das Tages-Soll auf null und verbrauchen je Tag einen Urlaubstag |
 
 ## Datenformat

@@ -80,6 +80,26 @@ function weekdaysBetween(from, to) {
   return n
 }
 
+// "Fr" / "Mi,Fr" / "5" / "friday" -> [5], [3,5] … (JS-Wochentag, So=0).
+var DAY_ALIASES = { so: 0, sun: 0, sunday: 0, sonntag: 0, mo: 1, mon: 1, monday: 1, montag: 1,
+  di: 2, tue: 2, tuesday: 2, dienstag: 2, mi: 3, wed: 3, wednesday: 3, mittwoch: 3,
+  "do": 4, thu: 4, thursday: 4, donnerstag: 4, fr: 5, fri: 5, friday: 5, freitag: 5,
+  sa: 6, sat: 6, saturday: 6, samstag: 6 }
+function parseWeekdays(text) {
+  var out = []
+  String(text || "").split(/[,\s;]+/).forEach(function(tok) {
+    var t = tok.trim().toLowerCase().replace(/\.$/, "")
+    if (t === "") return
+    var n = /^\d$/.test(t) ? parseInt(t, 10) : DAY_ALIASES[t]
+    if (n !== undefined && out.indexOf(n) < 0) out.push(n)
+  })
+  return out
+}
+
+// Schlüssel für die Wochen-/Monatstrennlinien in der Liste.
+function weekKey(d) { return startOfWeek(d).getTime() }
+function monthKey(d) { return d.getFullYear() * 12 + d.getMonth() }
+
 // Vorzeichenbehaftete Stundenangabe für Überstunden: "+1:30" / "−2:15".
 function fmtSigned(secs) {
   var s = Math.round(secs)

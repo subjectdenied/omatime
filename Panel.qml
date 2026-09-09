@@ -76,6 +76,27 @@ Panel {
 
   function isVacation(e) { return String(e.project || "").toLowerCase() === vacationProject }
 
+  // ---- Homeoffice: an konfigurierten Wochentagen bekommen Einträge die
+  // Beschreibung des Homeoffice-Themas (Beschreibungsspalte, wie in der
+  // GTK-App gepflegt — das Projekt bleibt das Arbeitsprojekt).
+  readonly property var homeofficeDays: Model.parseWeekdays(setting("homeofficeDays", ""))
+  readonly property string homeofficeTopic: String(setting("homeofficeTopic", "homeoffice"))
+  function isHomeofficeDay(d) { return homeofficeDays.indexOf(d.getDay()) >= 0 }
+  function presetTopic(e) {
+    if (e.start && (!e.desc || e.desc === "") && isHomeofficeDay(e.start)) e.desc = homeofficeTopic
+    return e
+  }
+  // Ein bereits laufender Eintrag am Homeoffice-Tag wird einmalig nachgezogen.
+  property bool hoPresetDone: false
+  function presetRunningTopic() {
+    if (hoPresetDone || !logLoaded || !runningEntry) return
+    hoPresetDone = true
+    if ((!runningEntry.desc || runningEntry.desc === "") && isHomeofficeDay(runningEntry.start)) {
+      runningEntry.desc = homeofficeTopic
+      save()
+    }
+  }
+
   // Ist-Arbeitszeit, Urlaubstage und Soll (Werktage bis heute minus
   // Urlaubs-Werktage, mal Tages-Soll) seit `since`.
   function periodStats(since) {
@@ -204,6 +225,7 @@ Panel {
         root.backupDone = true
         Quickshell.execDetached(["cp", "-n", root.csvPath, root.csvPath + ".omarchy-shell.bak"])
       }
+      Qt.callLater(root.presetRunningTopic)
     }
     onLoadFailed: function(error) { root.logLoaded = false; console.log("timetracker[" + root.inst + "] LOAD FAILED: " + error) }
   }
@@ -223,14 +245,14 @@ Panel {
 
   function startTimer(startDate) {
     if (runningEntry) return
-    entries.push({
+    entries.push(presetTopic({
       project: activeProject,
       start: startDate || new Date(),
       end: null,
       desc: "",
       id: String(Date.now()),
       billed: false
-    })
+    }))
     save()
   }
 
@@ -241,14 +263,14 @@ Panel {
   }
 
   function addEntry(start, end) {
-    var e = {
+    var e = presetTopic({
       project: activeProject,
       start: start,
       end: end,
       desc: "",
       id: String(Date.now()),
       billed: false
-    }
+    })
     // Chronologisch einsortieren — die Bestandsdatei ist nach Startzeit
     // sortiert, nachgetragene Alt-Einträge sollen das nicht brechen.
     var i = entries.length
@@ -556,7 +578,7 @@ Panel {
                     ? "seit " + (Model.sameDay(root.runningEntry.start, new Date())
                         ? Model.fmtTime(root.runningEntry.start)
                         : Model.fmtDayDate(root.runningEntry.start) + " " + Model.fmtTime(root.runningEntry.start))
-                      + " · "
+                      + (root.runningEntry.desc ? " · " + root.runningEntry.desc : "") + " · "
                     : ""
                   color: root.runningSecs > 12 * 3600 ? Color.urgent : Qt.darker(root.barForeground, 1.3)
                   font.family: Style.font.family
@@ -908,16 +930,36 @@ Panel {
 
             delegate: Item {
               required property var modelData
+              required property int index
+              // Trennlinie, wenn der vorherige (neuere) Eintrag in einer anderen
+              // Woche bzw. einem anderen Monat liegt.
+              readonly property var prevEntry: index > 0 ? root.recentEntries[index - 1] : null
+              readonly property bool newMonth: prevEntry !== null && prevEntry.start && Model.monthKey(prevEntry.start) !== Model.monthKey(modelData.start)
+              readonly property bool newWeek: !newMonth && prevEntry !== null && prevEntry.start && Model.weekKey(prevEntry.start) !== Model.weekKey(modelData.start)
+              readonly property real sepGap: (newWeek || newMonth) ? Style.space(7) : 0
               readonly property bool isEditing: root.editingEntry !== null && root.editingEntry.id === modelData.id
               readonly property bool hot: rowHover.hovered
               readonly property bool running: !modelData.end
               readonly property double liveSecs: { root.nowTick; return running ? root.runningSecs : (modelData.end.getTime() - modelData.start.getTime()) / 1000 }
 
               width: entryList.width
-              height: rowText.implicitHeight + Style.space(6)
+              height: rowText.implicitHeight + Style.space(6) + sepGap
+
+              // Schmale, dezente Linie: Wochenwechsel leicht, Monatswechsel etwas kräftiger.
+              Rectangle {
+                visible: parent.newWeek || parent.newMonth
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.leftMargin: Style.space(6)
+                anchors.rightMargin: Style.space(6)
+                y: Math.round(parent.sepGap / 2) - 1
+                height: 1
+                color: parent.newMonth ? Qt.alpha(root.barForeground, 0.35) : Qt.alpha(root.barForeground, 0.15)
+              }
 
               Rectangle {
                 anchors.fill: parent
+                anchors.topMargin: parent.sepGap
                 radius: Style.cornerRadius
                 color: parent.isEditing ? Style.selectionFillFor(root.barForeground, Color.accent)
                   : parent.hot ? Style.hoverFillFor(root.barForeground, Color.accent)
@@ -931,6 +973,7 @@ Panel {
                 anchors.right: parent.right
                 anchors.rightMargin: Style.space(8)
                 anchors.verticalCenter: parent.verticalCenter
+                anchors.verticalCenterOffset: parent.sepGap / 2
                 width: Style.space(54)
                 height: Style.space(7)
 
@@ -961,11 +1004,13 @@ Panel {
                 anchors.leftMargin: Style.space(6)
                 anchors.rightMargin: Style.space(8)
                 anchors.verticalCenter: parent.verticalCenter
+                anchors.verticalCenterOffset: parent.sepGap / 2
                 textFormat: Text.PlainText
                 text: Model.fmtDayDate(modelData.start) + "  "
                   + Model.fmtTime(modelData.start) + "–" + (parent.running ? "     " : Model.fmtTime(modelData.end))
                   + "  (" + Model.fmtDurHM(parent.liveSecs) + " h)  "
                   + modelData.project
+                  + (modelData.desc ? " · " + modelData.desc : "")
                   + (parent.running ? "  󰐊 läuft" : "")
                 color: parent.running ? Color.accent
                   : parent.isEditing || parent.hot ? root.barForeground : Qt.darker(root.barForeground, 1.2)

@@ -26,7 +26,9 @@
       "weeklyHours": 35,
       "workDays": 5,
       "vacationDays": 25,
-      "vacationProject": "urlaub"
+      "vacationProject": "urlaub",
+      "homeofficeDays": "",
+      "homeofficeTopic": "homeoffice"
     },
     "schema": [
       {
@@ -91,6 +93,19 @@
         "label": "Urlaubs-Projekt",
         "defaultValue": "urlaub",
         "description": "Einträge dieses Projekts zählen nicht als Arbeitszeit und verbrauchen je Tag einen Urlaubstag."
+      },
+      {
+        "key": "homeofficeDays",
+        "type": "string",
+        "label": "Homeoffice-Wochentage",
+        "defaultValue": "",
+        "description": "Kommagetrennt, z.B. \"Fr\" oder \"Mi,Fr\" (Mo/Di/Mi/Do/Fr/Sa/So). Einträge an diesen Tagen bekommen automatisch die Beschreibung des Homeoffice-Themas."
+      },
+      {
+        "key": "homeofficeTopic",
+        "type": "string",
+        "label": "Homeoffice-Thema (Beschreibung)",
+        "defaultValue": "homeoffice"
       }
     ]
   }
