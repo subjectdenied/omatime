@@ -100,6 +100,16 @@ function parseWeekdays(text) {
 function weekKey(d) { return startOfWeek(d).getTime() }
 function monthKey(d) { return d.getFullYear() * 12 + d.getMonth() }
 
+// "11:46" / "-2:15" (h:mm) oder "11.5" / "11,5" (Dezimalstunden) -> Sekunden; null wenn leer/ungültig.
+function parseHours(text) {
+  var t = String(text || "").trim().replace(",", ".")
+  if (t === "") return null
+  var m = /^([+-]?)(\d+):(\d{1,2})$/.exec(t)
+  if (m) return (m[1] === "-" ? -1 : 1) * (parseInt(m[2], 10) * 3600 + parseInt(m[3], 10) * 60)
+  var f = parseFloat(t)
+  return isNaN(f) ? null : Math.round(f * 3600)
+}
+
 // Vorzeichenbehaftete Stundenangabe für Überstunden: "+1:30" / "−2:15".
 function fmtSigned(secs) {
   var s = Math.round(secs)

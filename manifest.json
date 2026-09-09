@@ -29,8 +29,9 @@
       "vacationProject": "urlaub",
       "homeofficeDays": "",
       "homeofficeTopic": "homeoffice",
-      "vacationLeft": -1,
-      "vacationLeftDate": ""
+      "baseDate": "",
+      "baseVacationLeft": -1,
+      "baseSurplusHours": ""
     },
     "schema": [
       {
@@ -110,21 +111,28 @@
         "defaultValue": "homeoffice"
       },
       {
-        "key": "vacationLeft",
+        "key": "baseDate",
+        "type": "string",
+        "label": "Stichtag (YYYY-MM-DD)",
+        "defaultValue": "",
+        "description": "Ab diesem Tag (inklusive) rechnen Überstundenkonto und Rest-Urlaub von den Startwerten weiter — für Tracking-Start mitten im Jahr."
+      },
+      {
+        "key": "baseVacationLeft",
         "type": "integer",
-        "label": "Tatsächlich übrige Urlaubstage (Stand)",
+        "label": "Rest-Urlaub am Stichtag",
         "min": -1,
         "max": 60,
         "step": 1,
         "defaultValue": -1,
-        "description": "Rest-Urlaub zum Stichtag vacationLeftDate; -1 = aus (dann vacationDays minus alle Urlaubstage des Jahres). Urlaubseinträge NACH dem Stichtag werden abgezogen."
+        "description": "-1 = aus (dann vacationDays minus alle Urlaubstage des Jahres)."
       },
       {
-        "key": "vacationLeftDate",
+        "key": "baseSurplusHours",
         "type": "string",
-        "label": "Stichtag für vacationLeft",
+        "label": "Überstunden am Stichtag",
         "defaultValue": "",
-        "description": "YYYY-MM-DD; Einträge bis einschließlich dieses Tages gelten als im Rest bereits berücksichtigt."
+        "description": "\"11:46\" (h:mm) oder \"11.5\" (Dezimalstunden), auch negativ; leer = aus."
       }
     ]
   }
