@@ -1008,7 +1008,7 @@ Panel {
             text: "Überstunden: Woche " + Model.fmtSigned(root.weekStats.surplus)
               + " · Monat " + Model.fmtSigned(root.monthStats.surplus)
               + (root.surplusOverride
-                  ? " · Konto " + Model.fmtSigned(root.accountSurplus) + " h (Stand " + Model.fmtDayDate(root.baseDate) + ": " + Model.fmtSigned(root.baseSurplusSecs) + ")"
+                  ? " · Konto aktuell " + Model.fmtSigned(root.accountSurplus) + " h"
                   : " · Jahr " + Model.fmtSigned(root.yearStats.surplus) + " h")
             color: Qt.darker(root.barForeground, 1.2)
             font.family: Style.font.family
