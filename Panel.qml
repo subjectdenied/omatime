@@ -25,10 +25,20 @@ Panel {
     var p = setting("csvPath", "")
     return p !== "" ? p : Quickshell.env("HOME") + "/.local/share/time-tracker/log.csv"
   }
-  // Leeres ssid-Setting = automatisch das aktuell verbundene WLAN verwenden.
+  // Netz-Listen: Büro-WLANs (Vorschläge) und Homeoffice-WLANs (Vorschläge
+  // plus Homeoffice-Thema als Beschreibung). Das ältere Einzel-Setting
+  // `ssid` zählt als weiteres Büro-Netz. Ist nichts konfiguriert, gilt das
+  // gerade verbundene WLAN als Büro-Netz (nur Vorschläge, kein Thema).
   readonly property string configuredSsid: setting("ssid", "")
   property string detectedSsid: ""
-  readonly property string ssid: configuredSsid !== "" ? configuredSsid : detectedSsid
+  readonly property var officeNetworks: Model.parseNetworkList(setting("officeNetworks", ""))
+    .concat(configuredSsid !== "" ? [configuredSsid] : [])
+  readonly property var homeofficeNetworks: Model.parseNetworkList(setting("homeofficeNetworks", ""))
+  readonly property var knownNetworks: officeNetworks.concat(homeofficeNetworks)
+  readonly property var suggestionNetworks: knownNetworks.length > 0 ? knownNetworks
+    : (detectedSsid !== "" ? [detectedSsid] : [])
+  // "homeoffice" | "office" | "" für das aktuell verbundene WLAN.
+  readonly property string currentKind: Model.networkKind(detectedSsid, officeNetworks, homeofficeNetworks)
   readonly property string defaultProject: setting("defaultProject", "tafel österreich")
   readonly property int roundMinutes: parseInt(setting("roundMinutes", 5), 10) || 0
 
@@ -94,26 +104,40 @@ Panel {
 
   function isVacation(e) { return String(e.project || "").toLowerCase() === vacationProject }
 
-  // ---- Homeoffice: an konfigurierten Wochentagen bekommen Einträge die
-  // Beschreibung des Homeoffice-Themas (Beschreibungsspalte, wie in der
-  // GTK-App gepflegt — das Projekt bleibt das Arbeitsprojekt).
+  // ---- Homeoffice: Einträge bekommen das Homeoffice-Thema als Beschreibung
+  // (Beschreibungsspalte, wie in der GTK-App gepflegt — das Projekt bleibt
+  // das Arbeitsprojekt), wenn sie in einem Homeoffice-WLAN entstehen. Ist
+  // das Netz unbekannt (kein WLAN, Alt-Eintrag), entscheiden die
+  // konfigurierten Homeoffice-Wochentage.
   readonly property var homeofficeDays: Model.parseWeekdays(setting("homeofficeDays", ""))
   readonly property string homeofficeTopic: String(setting("homeofficeTopic", "homeoffice"))
   function isHomeofficeDay(d) { return homeofficeDays.indexOf(d.getDay()) >= 0 }
-  function presetTopic(e) {
-    if (e.start && (!e.desc || e.desc === "") && isHomeofficeDay(e.start)) e.desc = homeofficeTopic
+  // kind: "homeoffice" | "office" | "" (dann: heute = aktuelles WLAN, sonst Wochentag)
+  function wantsHomeoffice(start, kind) {
+    var k = kind || ""
+    if (k === "" && start && Model.sameDay(start, new Date())) k = currentKind
+    if (k === "homeoffice") return true
+    if (k === "office") return false
+    return !!start && isHomeofficeDay(start)
+  }
+  function presetTopic(e, kind) {
+    if (e.start && (!e.desc || e.desc === "") && wantsHomeoffice(e.start, kind)) e.desc = homeofficeTopic
     return e
   }
-  // Ein bereits laufender Eintrag am Homeoffice-Tag wird einmalig nachgezogen.
-  property bool hoPresetDone: false
+  // Ein bereits laufender Eintrag wird nachgezogen, sobald das WLAN bekannt
+  // ist (nmcli antwortet asynchron) — einmal je Eintrag und Netz-Zustand.
+  property string hoPresetFor: ""
   function presetRunningTopic() {
-    if (hoPresetDone || !logLoaded || !runningEntry) return
-    hoPresetDone = true
-    if ((!runningEntry.desc || runningEntry.desc === "") && isHomeofficeDay(runningEntry.start)) {
+    if (!logLoaded || !runningEntry) return
+    var key = runningEntry.id + ":" + currentKind
+    if (hoPresetFor === key) return
+    hoPresetFor = key
+    if ((!runningEntry.desc || runningEntry.desc === "") && wantsHomeoffice(runningEntry.start, "")) {
       runningEntry.desc = homeofficeTopic
       save()
     }
   }
+  onCurrentKindChanged: presetRunningTopic()
 
   // Ist-Arbeitszeit, Urlaubstage und Soll (Werktage bis heute minus
   // Urlaubs-Werktage, mal Tages-Soll) seit `since`.
@@ -310,7 +334,7 @@ Panel {
     logFile.reload()
     keyFile.reload()
     journalProc.running = true
-    if (configuredSsid === "" && !ssidProc.running) ssidProc.running = true
+    if (!ssidProc.running) ssidProc.running = true
     nowTick = Date.now()
   }
 
@@ -338,6 +362,9 @@ Panel {
         Quickshell.execDetached(["cp", "-n", root.csvPath, root.csvPath + ".omarchy-shell.bak"])
       }
       Qt.callLater(root.presetRunningTopic)
+      // Netz nachschlagen, damit ein laufender Eintrag auch ohne geöffnetes
+      // Panel sein Homeoffice-Thema bekommt.
+      if (!ssidProc.running) ssidProc.running = true
     }
     onLoadFailed: function(error) { root.logLoaded = false; console.log("timetracker[" + root.inst + "] LOAD FAILED: " + error) }
   }
@@ -355,7 +382,7 @@ Panel {
     root.entries = entries.slice()
   }
 
-  function startTimer(startDate) {
+  function startTimer(startDate, kind) {
     if (runningEntry) return
     entries.push(presetTopic({
       project: activeProject,
@@ -364,8 +391,11 @@ Panel {
       desc: "",
       id: String(Date.now()),
       billed: false
-    }))
+    }, kind))
     save()
+    // Falls das WLAN noch nicht bekannt war: nachschlagen, presetRunningTopic
+    // trägt das Thema dann nach.
+    if (!ssidProc.running) ssidProc.running = true
   }
 
   function stopTimer() {
@@ -374,7 +404,7 @@ Panel {
     save()
   }
 
-  function addEntry(start, end) {
+  function addEntry(start, end, kind) {
     var e = presetTopic({
       project: activeProject,
       start: start,
@@ -382,7 +412,7 @@ Panel {
       desc: "",
       id: String(Date.now()),
       billed: false
-    })
+    }, kind)
     // Chronologisch einsortieren — die Bestandsdatei ist nach Startzeit
     // sortiert, nachgetragene Alt-Einträge sollen das nicht brechen.
     var i = entries.length
@@ -412,10 +442,14 @@ Panel {
   function addManualEntry() {
     if (!manualValid) return
     var start = Model.combine(newFromDate, Model.parseTimeInput(newFrom))
-    if (newTo === "") startTimer(start)
-    else addEntry(start, Model.combine(newToDate, Model.parseTimeInput(newTo)))
+    if (newTo === "") startTimer(start, newKind)
+    else addEntry(start, Model.combine(newToDate, Model.parseTimeInput(newTo)), newKind)
     resetForm()
   }
+
+  // Netz-Art der übernommenen WLAN-Session ("homeoffice"/"office"/""), damit
+  // "Anlegen" das Thema passend setzt.
+  property string newKind: ""
 
   function resetForm() {
     editingEntry = null
@@ -424,6 +458,7 @@ Panel {
     newToDate = Model.startOfDay(new Date())
     newFrom = ""
     newTo = ""
+    newKind = ""
   }
 
   // WLAN-Session ins Formular übernehmen: Login auf volle 15 min abrunden,
@@ -431,6 +466,7 @@ Panel {
   // Ein gerade bearbeiteter Eintrag bleibt in Bearbeitung — die Werte
   // landen im Formular, 󰆓 aktualisiert dann diesen Eintrag.
   function takeoverSession(session) {
+    newKind = session.kind || ""
     var from = Model.toFormTime(Model.floorDate(session.start, 15), null)
     newFromDate = from.day
     newFrom = from.time
@@ -556,12 +592,15 @@ Panel {
   // berechnet, sobald sich eines von beiden ändert.
   property string journalText: ""
   onJournalTextChanged: recomputeSessions()
-  onSsidChanged: recomputeSessions()
+  onSuggestionNetworksChanged: recomputeSessions()
 
   function recomputeSessions() {
-    wifiSessions = ssid !== ""
-      ? Model.mergeSessions(Model.parseSessions(journalText, ssid), 10)
-      : []
+    var nets = suggestionNetworks
+    var sessions = nets.length > 0 ? Model.mergeSessions(Model.parseSessions(journalText, nets), 10) : []
+    wifiSessions = sessions.map(function(s) {
+      return { start: s.start, end: s.end, ssid: s.ssid,
+               kind: Model.networkKind(s.ssid, root.officeNetworks, root.homeofficeNetworks) }
+    })
   }
 
   Process {
@@ -777,14 +816,16 @@ Panel {
 
           // ---- Wifi suggestions ----
           PanelSectionHeader {
-            text: root.ssid !== "" ? "WLAN " + root.ssid + " heute" : "WLAN heute"
+            text: "WLAN heute"
             foreground: root.barForeground
           }
 
           Text {
             visible: root.wifiSessions.length === 0
             textFormat: Text.PlainText
-            text: root.ssid !== "" ? "Heute keine Anmeldung im " + root.ssid : "Kein WLAN verbunden"
+            text: root.suggestionNetworks.length > 0
+              ? "Heute keine Anmeldung in " + root.suggestionNetworks.join(", ")
+              : "Kein WLAN verbunden"
             color: Qt.darker(root.barForeground, 1.3)
             font.family: Style.font.family
             font.pixelSize: Style.font.body
@@ -812,6 +853,8 @@ Panel {
                 elide: Text.ElideRight
                 text: "Login " + Model.fmtTime(sessionRow.modelData.start)
                   + " → Logout " + (sessionRow.modelData.end ? Model.fmtTime(sessionRow.modelData.end) : "–")
+                  + " · " + sessionRow.modelData.ssid
+                  + (sessionRow.modelData.kind === "homeoffice" ? " (Homeoffice)" : "")
                   + (sessionRow.covered ? "  ✓ erfasst" : "")
                 color: sessionRow.covered ? Qt.darker(root.barForeground, 1.4) : root.barForeground
                 font.family: Style.font.family
@@ -833,7 +876,7 @@ Panel {
                   fontSize: Style.font.icon
                   foreground: Color.accent
                   tooltipText: "Timer ab " + Model.fmtTime(sessionRow.sStart) + " starten"
-                  onClicked: root.startTimer(sessionRow.sStart)
+                  onClicked: root.startTimer(sessionRow.sStart, sessionRow.modelData.kind)
                 }
                 Button {
                   width: Style.spacing.controlHeight

@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "author": "Chris",
   "license": "MIT",
-  "description": "Zeiterfassung im Omarchy-Bar: liest und schreibt das CSV der GNOME-Time-Tracker-App und schlägt für neue Einträge die WLAN-Anmeldezeiten im Büro-Netz vor.",
+  "description": "Zeiterfassung im Omarchy-Bar: liest und schreibt das CSV der GNOME-Time-Tracker-App, schlägt WLAN-Anmeldezeiten als Einträge vor und setzt im Homeoffice-Netz automatisch das Homeoffice-Thema.",
   "kinds": [
     "bar-widget"
   ],
@@ -14,13 +14,15 @@
   },
   "barWidget": {
     "displayName": "Time Tracker",
-    "description": "Timer starten/stoppen, Einträge aus tafel_office-WLAN-Zeiten anlegen; Datenbasis ist ~/.local/share/time-tracker/log.csv (kompatibel zur GTK-App).",
+    "description": "Timer starten/stoppen, Einträge aus den WLAN-Anmeldezeiten (Büro- und Homeoffice-Netze) anlegen; Datenbasis ist ~/.local/share/time-tracker/log.csv (kompatibel zur GTK-App).",
     "category": "Productivity",
     "allowMultiple": false,
     "defaultSection": "right",
     "defaults": {
       "csvPath": "",
       "ssid": "",
+      "officeNetworks": "",
+      "homeofficeNetworks": "",
       "defaultProject": "tafel österreich",
       "roundMinutes": 15,
       "weeklyHours": 35,
@@ -46,9 +48,23 @@
       {
         "key": "ssid",
         "type": "string",
-        "label": "Büro-WLAN (SSID)",
+        "label": "Büro-WLAN (SSID, veraltet)",
         "defaultValue": "",
-        "description": "Anmeldezeiten in dieses WLAN werden als Start/Ende vorgeschlagen. Leer = aktuell verbundenes WLAN automatisch verwenden."
+        "description": "Älteres Einzel-Setting; zählt als weiteres Büro-Netz. Lieber \"Büro-WLANs\" verwenden."
+      },
+      {
+        "key": "officeNetworks",
+        "type": "string",
+        "label": "Büro-WLANs",
+        "defaultValue": "",
+        "description": "SSIDs, kommagetrennt (z.B. \"tafel_office\"). Anmeldezeiten werden als Start/Ende vorgeschlagen. Leer und keine Homeoffice-WLANs = aktuell verbundenes WLAN."
+      },
+      {
+        "key": "homeofficeNetworks",
+        "type": "string",
+        "label": "Homeoffice-WLANs",
+        "defaultValue": "",
+        "description": "SSIDs, kommagetrennt. Einträge, die in einem dieser Netze entstehen (Timer, Vorschlag, Formular für heute), bekommen automatisch das Homeoffice-Thema als Beschreibung."
       },
       {
         "key": "defaultProject",
@@ -104,7 +120,7 @@
         "type": "string",
         "label": "Homeoffice-Wochentage",
         "defaultValue": "",
-        "description": "Kommagetrennt, z.B. \"Fr\" oder \"Mi,Fr\" (Mo/Di/Mi/Do/Fr/Sa/So). Einträge an diesen Tagen bekommen automatisch die Beschreibung des Homeoffice-Themas."
+        "description": "Kommagetrennt, z.B. \"Fr\" oder \"Mi,Fr\" (Mo/Di/Mi/Do/Fr/Sa/So). Greift, wenn das WLAN nichts sagt (kein WLAN, unbekanntes Netz, Alt-Einträge)."
       },
       {
         "key": "homeofficeTopic",

@@ -9,11 +9,16 @@ auf **derselben CSV** — beide Apps können parallel benutzt werden.
 - Bar-Widget mit Live-Timer (`󱎫 2:34`), Mittelklick = Start/Stopp
 - Panel: Live-Timer, klickbares Projekt-Label (Projektliste aus der
   gsettings-Konfiguration der GTK-App), quadratischer Start/Stopp-Button
-- **WLAN-Vorschläge:** Anmeldezeiten im Büro-Netz werden aus dem
-  NetworkManager-Journal gelesen und als Start/Ende neuer Einträge
-  vorgeschlagen; bereits erfasste Zeiten werden markiert. Die SSID wird
-  standardmäßig automatisch erkannt (aktuell verbundenes WLAN, via nmcli)
-  und kann per Setting auf ein bestimmtes Netz gepinnt werden
+- **WLAN-Vorschläge:** Anmeldezeiten in den Büro- und Homeoffice-Netzen
+  werden aus dem NetworkManager-Journal gelesen und als Start/Ende neuer
+  Einträge vorgeschlagen (mit Netzname); bereits erfasste Zeiten werden
+  markiert. Ohne konfigurierte Netze gilt das aktuell verbundene WLAN
+  (via nmcli)
+- **Homeoffice per WLAN:** entsteht ein Eintrag in einem Homeoffice-Netz
+  (Timer, übernommener Vorschlag, Formular für heute), bekommt er
+  automatisch das Homeoffice-Thema als Beschreibung — so wie es bisher
+  von Hand eingetragen wurde. Ein schon laufender Eintrag wird nachgezogen,
+  sobald das Netz erkannt ist. Homeoffice-Wochentage bleiben als Fallback
 - Manuelle Einträge über Kalender-Picker (Qt MonthGrid) und Zeit-Picker
   (15-min-Raster 06:00–24:00), Über-Nacht-Einträge möglich
 - Einträge per Klick bearbeiten/löschen (Liste virtualisiert, volle Historie)
@@ -22,8 +27,7 @@ auf **derselben CSV** — beide Apps können parallel benutzt werden.
   Anteil über Soll in Warnfarbe; Textzeile mit gearbeitet/Soll/noch bzw. über
 - Mini-Raster je Listeneintrag auf gemeinsamer 06–20-Uhr-Achse (Stundenlinien,
   Segment, Anteil über Soll, Soll-Marke des Tages); Summen für Heute/Woche/Monat
-- Wochen-/Monatstrennlinien in der Liste; Homeoffice-Wochentage setzen die
-  Beschreibung automatisch
+- Wochen-/Monatstrennlinien in der Liste
 - Überstunden Woche/Monat/Jahr (Ist − Werktage-bis-heute × Tages-Soll,
   Urlaubstage senken das Soll) und Urlaubskonto (genommen/übrig)
 
@@ -41,7 +45,9 @@ Im Widget-Eintrag in `~/.config/omarchy/shell.json`:
 | Key | Default | Bedeutung |
 |---|---|---|
 | `csvPath` | `~/.local/share/time-tracker/log.csv` | Time-Tracker-CSV |
-| `ssid` | *(leer)* | Büro-WLAN für Vorschläge; leer = aktuell verbundenes WLAN (Autodetect via nmcli) |
+| `officeNetworks` | *(leer)* | Büro-WLANs, kommagetrennt (`tafel_office`); Anmeldezeiten werden vorgeschlagen. Leer und keine Homeoffice-WLANs = aktuell verbundenes WLAN |
+| `homeofficeNetworks` | *(leer)* | Homeoffice-WLANs, kommagetrennt; Einträge aus diesen Netzen bekommen das Homeoffice-Thema |
+| `ssid` | *(leer)* | veraltet: ein weiteres Büro-WLAN |
 | `defaultProject` | `tafel österreich` | Projekt für neue Einträge |
 | `roundMinutes` | `15` | Rundung der WLAN-Vorschläge |
 | `weeklyHours` | `35` | Wochenstunden (Soll); Tages-Soll = weeklyHours / workDays |
@@ -50,7 +56,7 @@ Im Widget-Eintrag in `~/.config/omarchy/shell.json`:
 | `baseDate` | *(leer)* | Stichtag `YYYY-MM-DD`: ab hier (inklusive) laufen Überstundenkonto und Rest-Urlaub von den Startwerten weiter — für Tracking-Start mitten im Jahr |
 | `baseVacationLeft` | `-1` | Rest-Urlaub am Stichtag; `-1` = aus |
 | `baseSurplusHours` | *(leer)* | Überstunden am Stichtag, `"11:46"` (h:mm) oder `"11.5"` (dezimal), auch negativ; leer = aus |
-| `homeofficeDays` | *(leer)* | Wochentage, kommagetrennt (`Fr` oder `Mi,Fr`), an denen neue/laufende Einträge automatisch das Homeoffice-Thema als Beschreibung bekommen |
+| `homeofficeDays` | *(leer)* | Wochentage, kommagetrennt (`Fr` oder `Mi,Fr`): Fallback, wenn das WLAN nichts sagt (kein WLAN, unbekanntes Netz, Alt-Einträge) |
 | `homeofficeTopic` | `homeoffice` | Beschreibungstext für Homeoffice-Tage (Beschreibungsspalte der CSV, Projekt bleibt unverändert) |
 | `breakAfterHours` | `6` | Liegt die Brutto-Arbeitszeit eines Tages darüber, wird die Pause automatisch abgezogen (Balken, Summen, Überstunden); `0` = aus |
 | `breakMinutes` | `30` | Länge der abgezogenen Pause |

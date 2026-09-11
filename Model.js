@@ -293,6 +293,23 @@ function combine(day, t) {
 
 // `nmcli -t -f ACTIVE,SSID dev wifi` -> SSID der aktiven Verbindung
 // (terse-Mode escaped Doppelpunkte als \:).
+// -------------------------------------------------------------- networks ----
+
+// Settings-Listen: "tafel_office, gast" → ["tafel_office", "gast"].
+function parseNetworkList(text) {
+  return String(text || "").split(/[,;\n]+/)
+    .map(function(s) { return s.trim() })
+    .filter(function(s) { return s !== "" })
+}
+
+// "homeoffice" | "office" | "" (unbekannt/kein WLAN) für eine SSID.
+function networkKind(ssid, officeList, homeList) {
+  if (!ssid) return ""
+  if ((homeList || []).indexOf(ssid) >= 0) return "homeoffice"
+  if ((officeList || []).indexOf(ssid) >= 0) return "office"
+  return ""
+}
+
 function parseActiveSsid(text) {
   var lines = String(text || "").split("\n")
   for (var i = 0; i < lines.length; i++) {
@@ -308,8 +325,10 @@ function parseActiveSsid(text) {
 // on "Connected to wireless network \"<ssid>\"" and closes when the wifi
 // device leaves the activated state (covers disconnect, suspend, shutdown —
 // NetworkManager logs "activated -> deactivating" on all of them) or when a
-// different network takes over.
-function parseSessions(text, ssid) {
+// different network takes over. `ssids` is one SSID or a list (office and
+// homeoffice networks); every session remembers which one it was.
+function parseSessions(text, ssids) {
+  var want = Array.isArray(ssids) ? ssids : [ssids]
   var sessions = [], cur = null
   var lines = String(text || "").split("\n")
   for (var i = 0; i < lines.length; i++) {
@@ -319,11 +338,10 @@ function parseSessions(text, ssid) {
     var ts = new Date(parseInt(mTime[1], 10) * 1000)
     var mConn = /Connected to wireless network "(.*)"/.exec(line)
     if (mConn) {
-      if (mConn[1] === ssid) {
-        if (!cur) cur = { start: ts, end: null }
-      } else if (cur) {
+      if (cur && cur.ssid !== mConn[1]) {
         cur.end = ts; sessions.push(cur); cur = null
       }
+      if (want.indexOf(mConn[1]) >= 0 && !cur) cur = { start: ts, end: null, ssid: mConn[1] }
       continue
     }
     if (cur && /device \(wl[^)]*\): state change: activated -> /.test(line)) {
@@ -335,16 +353,17 @@ function parseSessions(text, ssid) {
 }
 
 // Short reconnects (AP roaming, a reboot over lunch at the desk) shouldn't
-// split the workday into confetti.
+// split the workday into confetti. Only sessions of the same network merge.
 function mergeSessions(sessions, gapMinutes) {
   var out = []
   for (var i = 0; i < sessions.length; i++) {
     var s = sessions[i]
     var last = out.length ? out[out.length - 1] : null
-    if (last && last.end && (s.start.getTime() - last.end.getTime()) <= gapMinutes * 60000) {
+    if (last && last.end && last.ssid === s.ssid
+        && (s.start.getTime() - last.end.getTime()) <= gapMinutes * 60000) {
       last.end = s.end
     } else {
-      out.push({ start: s.start, end: s.end })
+      out.push({ start: s.start, end: s.end, ssid: s.ssid })
     }
   }
   return out
