@@ -14,6 +14,12 @@ auf **derselben CSV** — beide Apps können parallel benutzt werden.
   Einträge vorgeschlagen (mit Netzname); bereits erfasste Zeiten werden
   markiert. Ohne konfigurierte Netze gilt das aktuell verbundene WLAN
   (via nmcli)
+- **Rundung:** WLAN-Zeiten werden **immer abgerundet**, auf volle
+  Viertelstunden (`roundMinutes`, Default 15). Das gilt für Login *und*
+  Logout bei der Übernahme ins Formular und ebenso für „Timer ab … starten“.
+  Aus `08:08 → 17:52` wird also `08:00 → 17:45`. Die angezeigten Login-/
+  Logout-Zeiten in der Vorschlagsliste bleiben ungerundet, gerundet wird
+  erst beim Übernehmen
 - **Homeoffice per WLAN:** entsteht ein Eintrag in einem Homeoffice-Netz
   (Timer, übernommener Vorschlag, Formular für heute), bekommt er
   automatisch das Homeoffice-Thema als Beschreibung — so wie es bisher
@@ -49,7 +55,7 @@ Im Widget-Eintrag in `~/.config/omarchy/shell.json`:
 | `homeofficeNetworks` | *(leer)* | Homeoffice-WLANs, kommagetrennt; Einträge aus diesen Netzen bekommen das Homeoffice-Thema |
 | `ssid` | *(leer)* | veraltet: ein weiteres Büro-WLAN |
 | `defaultProject` | `tafel österreich` | Projekt für neue Einträge |
-| `roundMinutes` | `15` | Rundung der WLAN-Vorschläge |
+| `roundMinutes` | `15` | Schrittweite, auf die WLAN-Zeiten **abgerundet** werden (Übernahme ins Formular und Timer-Start); `0` = nicht runden |
 | `weeklyHours` | `35` | Wochenstunden (Soll); Tages-Soll = weeklyHours / workDays |
 | `workDays` | `5` | Arbeitstage pro Woche |
 | `vacationDays` | `25` | Urlaubstage pro Jahr |

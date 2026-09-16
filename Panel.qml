@@ -42,7 +42,11 @@ Panel {
   readonly property string defaultProject: setting("defaultProject", "tafel österreich")
   // Schrittweite fürs Abrunden von WLAN-Zeiten. Default 15 wie im Manifest —
   // der frühere Inline-Default 5 hat 08:08 auf 08:10 gerundet.
-  readonly property int roundMinutes: parseInt(setting("roundMinutes", 15), 10) || 15
+  // 0 bedeutet bewusst "nicht runden", nur fehlende/ungültige Werte -> 15.
+  readonly property int roundMinutes: {
+    var v = parseInt(setting("roundMinutes", 15), 10)
+    return (isNaN(v) || v < 0) ? 15 : v
+  }
 
   // Diagnose: Instanz-Tag (eine Panel-Instanz pro Monitor-Bar)
   readonly property string inst: Math.random().toString(36).slice(2, 6)
