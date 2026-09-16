@@ -127,21 +127,12 @@ function fmtDurHMS(secs) {
   return Math.floor(secs / 3600) + ":" + pad2(Math.floor((secs % 3600) / 60)) + ":" + pad2(secs % 60)
 }
 
-function roundDate(d, minutes) {
+// WLAN-Zeiten werden immer abgerundet (Default: volle Viertelstunden) —
+// sowohl bei der Übernahme ins Formular als auch beim Timer-Start.
+function floorDate(d, minutes) {
   if (!d || !minutes) return d
   var step = minutes * 60000
-  return new Date(Math.round(d.getTime() / step) * step)
-}
-
-// WLAN-Übernahme: Login abrunden, Logout aufrunden (volle Viertelstunden).
-function floorDate(d, minutes) {
-  var step = minutes * 60000
   return new Date(Math.floor(d.getTime() / step) * step)
-}
-
-function ceilDate(d, minutes) {
-  var step = minutes * 60000
-  return new Date(Math.ceil(d.getTime() / step) * step)
 }
 
 // Date -> {day: Date(Mitternacht), time: "HH:MM"} für die Formular-Picker;

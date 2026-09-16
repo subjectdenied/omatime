@@ -75,7 +75,7 @@
       {
         "key": "roundMinutes",
         "type": "integer",
-        "label": "Vorschläge runden (Minuten)",
+        "label": "WLAN-Zeiten abrunden (Minuten)",
         "min": 0,
         "max": 30,
         "step": 5,

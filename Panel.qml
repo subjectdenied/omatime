@@ -40,7 +40,9 @@ Panel {
   // "homeoffice" | "office" | "" für das aktuell verbundene WLAN.
   readonly property string currentKind: Model.networkKind(detectedSsid, officeNetworks, homeofficeNetworks)
   readonly property string defaultProject: setting("defaultProject", "tafel österreich")
-  readonly property int roundMinutes: parseInt(setting("roundMinutes", 5), 10) || 0
+  // Schrittweite fürs Abrunden von WLAN-Zeiten. Default 15 wie im Manifest —
+  // der frühere Inline-Default 5 hat 08:08 auf 08:10 gerundet.
+  readonly property int roundMinutes: parseInt(setting("roundMinutes", 15), 10) || 15
 
   // Diagnose: Instanz-Tag (eine Panel-Instanz pro Monitor-Bar)
   readonly property string inst: Math.random().toString(36).slice(2, 6)
@@ -461,17 +463,17 @@ Panel {
     newKind = ""
   }
 
-  // WLAN-Session ins Formular übernehmen: Login auf volle 15 min abrunden,
-  // Logout (oder jetzt, falls noch verbunden) aufrunden.
+  // WLAN-Session ins Formular übernehmen: Login und Logout auf volle
+  // 15 min abrunden (immer abrunden, nie aufrunden).
   // Ein gerade bearbeiteter Eintrag bleibt in Bearbeitung — die Werte
   // landen im Formular, 󰆓 aktualisiert dann diesen Eintrag.
   function takeoverSession(session) {
     newKind = session.kind || ""
-    var from = Model.toFormTime(Model.floorDate(session.start, 15), null)
+    var from = Model.toFormTime(Model.floorDate(session.start, roundMinutes), null)
     newFromDate = from.day
     newFrom = from.time
     if (session.end) {
-      var to = Model.toFormTime(Model.ceilDate(session.end, 15), session.start)
+      var to = Model.toFormTime(Model.floorDate(session.end, roundMinutes), session.start)
       newToDate = to.day
       newTo = to.time
     } else {
@@ -837,7 +839,7 @@ Panel {
             Item {
               id: sessionRow
               required property var modelData
-              readonly property var sStart: Model.roundDate(modelData.start, root.roundMinutes)
+              readonly property var sStart: Model.floorDate(modelData.start, root.roundMinutes)
               readonly property bool covered: root.suggestionCovered(modelData)
 
               width: contentColumn.width
